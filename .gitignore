@@ -122,3 +122,10 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+*.h5
+DB/
+datasets/
+logs/
+trained/
+
