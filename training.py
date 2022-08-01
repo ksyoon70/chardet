@@ -128,34 +128,7 @@ train_data_count =  sum(len(files) for _, _, files in os.walk(train_dir))
 val_data_count = sum(len(files) for _, _, files in os.walk(validation_dir))
 # # Model description and training
 
-#model = get_Model(training=True)
-base_model = tf.keras.applications.resnet50.ResNet50(include_top=False, pooling = 'avg' , input_shape = (IMG_SIZE,IMG_SIZE ,3), weights = 'imagenet')
-base_model.trainable = False
-
-for layer in base_model.layers:
-    layer.trainable = False 
-
-"""
-inputs = Input(shape=(IMG_SIZE,IMG_SIZE,3))
-x = tf.keras.layers.experimental.preprocessing.Resizing(IMG_SIZE, IMG_SIZE)(inputs)
-x = tf.keras.applications.resnet50.preprocess_input(inputs)
-x = base_model(x, training = False)
-x = Flatten()(x)
-# Fully Connected에 온전하게 학습을 위해 펼쳐준다	
-tf.keras.layers.Dense(512,activation='relu')(x)
-x = tf.keras.layers.BatchNormalization() (x)
-x = tf.keras.layers.Dropout(rate=0.5)(x)
-outputs = Dense(len(categories), activation = 'softmax')(x)         # Softmax 함수로 10개 분류하는 분류기 
-model = tf.keras.Model(inputs, outputs)               # model_res 란 이름의 인풋과 아웃풋이 정해진 모델
-"""
-
-
-model = tf.keras.models.Sequential()
-model.add(base_model)
-model.add(layers.Flatten())
-model.add(layers.Dense(2048,activation='relu'))
-model.add(layers.Dropout(0.5))
-model.add(layers.Dense(len(categories),activation='softmax'))
+model = get_Model(len(categories))
 
 
 try:

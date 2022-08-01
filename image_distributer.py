@@ -2,10 +2,11 @@
 Created on 2022년 7월 31일
 레이블 리스트를 읽어 레이블를 확인한다.
 영상파일에서 레이블에 해당하는 폴더를 만들고 해당 폴더로 영상을 이동한다.
-예) python image_distributer -l ./LPR_Labels1.txt -i ./image -o ./result
+예) python image_distributer -l ./LPR_Labels1.txt -i ./image -o ./result -t ch -r [0.7,0.3]
 -l label 파일
 -i 이미지 위치
 -o 결과 파일 저장 위치
+-r train validation 분배 비율 default : 0.7,0.3 이다.
 @author:  윤경섭
 """
 
@@ -13,12 +14,14 @@ import os,sys,shutil
 import argparse
 import pandas as pd
 from label_tools import *
+import random
 #------------------------------
 # 수정할 내용
 MIDDLE_PATH_NAME = 'datasets'
 OUTPUT_FOLDER_NAME = 'out' # labelme로 출력할 디렉토리 이름 (현재 디렉토리 아래로 저장된다.)
 IMAGE_FOLDER_NAME = 'images' #이미지 파일에 있는 영상 파일이 있는 경로
 DEFAULT_LABEL_FILE = "./LPR_Labels1.txt"  #라벨 파일이름
+option_move = False # 원 파일을 옮길지 여부
 #------------------------------
 
 ROOT_DIR = os.path.dirname(__file__)
@@ -47,6 +50,12 @@ parser.add_argument("-o",
 parser.add_argument("-t",
                     "--object_type",
                     help="object type ch : character n: number r: region", type=str,default='ch')
+# training / validateion  비율을 설정한다.
+parser.add_argument("-r",
+                    "--ratio", type=float,
+                    help="train validation ratio ex[0.7,0.3] ",default=[0.7,0.3], required=False)
+
+
 args = parser.parse_args()
 
 fLabels = pd.read_csv(args.labelfile, header = None )
@@ -63,26 +72,44 @@ HREGION_CLASS = CLASS_NAMES[128:145] #Horizontal 지역문자 클래스
 OREGION_CLASS = CLASS_NAMES[145:162] #Orange 지역문자 클래스
 REGION6_CLASS = CLASS_NAMES[162:-1] #6 지역문자 클래스
 
+#사람이 볼수있는 이름으로 나눈다.
+CH_HUMAN_NAMES = HUMAN_NAMES[21:111]  #문자열 클래스
+NUM_HUMAN_NAMES = HUMAN_NAMES[11:21]  #숫자 클래스
+REGION_HUMAN_NAMES = HUMAN_NAMES[111:-1] #지역문자 클래스
+VREGION_HUMAN_NAMES = HUMAN_NAMES[111:128] #Vertical 지역문자 클래스
+HREGION_HUMAN_NAMES = HUMAN_NAMES[128:145] #Horizontal 지역문자 클래스
+OREGION_HUMAN_NAMES = HUMAN_NAMES[145:162] #Orange 지역문자 클래스
+REGION6_HUMAN_NAMES = HUMAN_NAMES[162:-1] #6 지역문자 클래스
 
+train_ratio = args.ratio[0]
+validation_ratio = 1.0 - args.ratio[0]
 
 check_class = [];
+human_names= [];
 
 if args.object_type == 'ch':        #문자 검사
     check_class = CH_CLASS
+    human_names = CH_HUMAN_NAMES
 elif args.object_type == 'n':       #숫자검사
     check_class = NUM_CLASS
+    human_names = NUM_HUMAN_NAMES
     print("{0} type is Not supporeted yet".format(args.object_type))
     sys.exit(0)
 elif args.object_type == 'r':       #지역문자 검사
     check_class = REGION_CLASS
+    human_names = REGION_HUMAN_NAMES
 elif args.object_type == 'vr':       #v 지역문자 검사
     check_class = VREGION_CLASS
+    human_names = VREGION_HUMAN_NAMES
 elif args.object_type == 'hr':       #h 지역문자 검사
     check_class = HREGION_CLASS
+    human_names = HREGION_HUMAN_NAMES
 elif args.object_type == 'or':       #o 지역문자 검사
     check_class = OREGION_CLASS
+    human_names = OREGION_HUMAN_NAMES
 elif args.object_type == 'r6':       #6 지역문자 검사
-    check_class = REGION6_CLASS      
+    check_class = REGION6_CLASS
+    human_names = REGION6_HUMAN_NAMES      
 else:
     print("{0} type is Not supporeted".format(args.object_type))
     sys.exit(0)
@@ -114,17 +141,58 @@ if os.path.exists(args.image_dir):
     image_ext = ['jpg','JPG','png','PNG']
     files = [fn for fn in os.listdir(src_dir)
                   if any(fn.endswith(ext) for ext in image_ext)]
+    sfiles = []  #source file list
     for file in files:
         label = file.split('_')[1]
         label = label[0:-4]
-        label_dir_name = CLASS_NAMES[HUMAN_NAMES.index(label)]
-        label_dir = os.path.join(dst_dir,label_dir_name)
-        if not os.path.exists(label_dir):
-            createFolder(label_dir)
-        #파일을 레이블 디렉토리로 복사한다.
-        src = os.path.join(src_dir,file)
-        dst = os.path.join(dst_dir,label_dir,file)
-        shutil.move(src,dst)
+        # english class label을 얻는다. 
+        if label in human_names :
+            sfiles.append(file)
+        else :
+            continue
+        
+    # sfile 을 랜덤하게 섞고 난 후 비율 대로 분리한다.
+    fileLen = len(sfiles)
+    if fileLen :
+        print('처리할 파일 갯수 {0}'.format(fileLen))
+        print('파일을 랜덤하게 섞습니다')
+        random.shuffle(sfiles)
+        train_file_count = int(fileLen*train_ratio)
+        tfiles = sfiles[0:train_file_count]
+        vfiles = sfiles[train_file_count :]
+        print('train 파일갯수 : {0} validation 파일갯수 : {1}'.format(len(tfiles),len(vfiles)))
+        if len(tfiles) :
+            for tfile in tfiles:
+                label = tfile.split('_')[1]
+                label = label[0:-4]
+                en_label = check_class[human_names.index(label)]
+                en_label_dir = os.path.join(dst_dir,'train',en_label)
+                if not os.path.exists(en_label_dir):
+                    createFolder(en_label_dir)
+                #파일을 레이블 디렉토리로 복사한다.
+                src = os.path.join(src_dir,tfile)
+                dst = os.path.join(dst_dir,en_label_dir,tfile)
+                if option_move :
+                    shutil.move(src,dst)
+                else :
+                    shutil.copy(src,dst)
+        if len(vfiles) :
+            for vfile in vfiles:
+                label = vfile.split('_')[1]
+                label = label[0:-4]
+                en_label = check_class[human_names.index(label)]
+                en_label_dir = os.path.join(dst_dir,'validation',en_label)
+                if not os.path.exists(en_label_dir):
+                    createFolder(en_label_dir)
+                #파일을 레이블 디렉토리로 복사한다.
+                src = os.path.join(src_dir,vfile)
+                dst = os.path.join(dst_dir,en_label_dir,vfile)
+                if option_move :
+                    shutil.move(src,dst)
+                else :
+                    shutil.copy(src,dst)
+    else :
+        print('처리할 파일이 없습니다')
 
     print('처리완료')      
 else :
