@@ -19,7 +19,7 @@ import random
 # 수정할 내용
 MIDDLE_PATH_NAME = 'datasets'
 OUTPUT_FOLDER_NAME = 'out' # labelme로 출력할 디렉토리 이름 (현재 디렉토리 아래로 저장된다.)
-IMAGE_FOLDER_NAME = 'images' #이미지 파일에 있는 영상 파일이 있는 경로
+IMAGE_FOLDER_NAME = 'vr_images' #이미지 파일에 있는 영상 파일이 있는 경로
 DEFAULT_LABEL_FILE = "./LPR_Labels1.txt"  #라벨 파일이름
 option_move = False # 원 파일을 옮길지 여부
 #------------------------------
@@ -49,7 +49,7 @@ parser.add_argument("-o",
 # 검색할 object type를 설정한다. 
 parser.add_argument("-t",
                     "--object_type",
-                    help="object type ch : character n: number r: region", type=str,default='ch')
+                    help="object type ch : character n: number r: region", type=str,default='hr')
 # training / validateion  비율을 설정한다.
 parser.add_argument("-r",
                     "--ratio", type=float,
@@ -59,56 +59,56 @@ parser.add_argument("-r",
 args = parser.parse_args()
 
 fLabels = pd.read_csv(args.labelfile, header = None )
-CLASS_NAMES = fLabels[0].values.tolist()
-HUMAN_NAMES = fLabels[1].values.tolist()
-CLASS_DIC = dict(zip(CLASS_NAMES, HUMAN_NAMES))
+LABEL_FILE_CLASS = fLabels[0].values.tolist()
+LABEL_FILE_HUMAN_NAMES = fLabels[1].values.tolist()
+CLASS_DIC = dict(zip(LABEL_FILE_CLASS, LABEL_FILE_HUMAN_NAMES))
 
 #클래스를 각각 그룹별로 나눈다.
-CH_CLASS = CLASS_NAMES[21:111]  #문자열 클래스
-NUM_CLASS = CLASS_NAMES[11:21]  #숫자 클래스
-REGION_CLASS = CLASS_NAMES[111:-1] #지역문자 클래스
-VREGION_CLASS = CLASS_NAMES[111:128] #Vertical 지역문자 클래스
-HREGION_CLASS = CLASS_NAMES[128:145] #Horizontal 지역문자 클래스
-OREGION_CLASS = CLASS_NAMES[145:162] #Orange 지역문자 클래스
-REGION6_CLASS = CLASS_NAMES[162:-1] #6 지역문자 클래스
+CH_CLASS = LABEL_FILE_CLASS[21:111]  #문자열 클래스
+NUM_CLASS = LABEL_FILE_CLASS[11:21]  #숫자 클래스
+REGION_CLASS = LABEL_FILE_CLASS[111:-1] #지역문자 클래스
+VREGION_CLASS = LABEL_FILE_CLASS[111:128] #Vertical 지역문자 클래스
+HREGION_CLASS = LABEL_FILE_CLASS[128:145] #Horizontal 지역문자 클래스
+OREGION_CLASS = LABEL_FILE_CLASS[145:162] #Orange 지역문자 클래스
+REGION6_CLASS = LABEL_FILE_CLASS[162:-1] #6 지역문자 클래스
 
 #사람이 볼수있는 이름으로 나눈다.
-CH_HUMAN_NAMES = HUMAN_NAMES[21:111]  #문자열 클래스
-NUM_HUMAN_NAMES = HUMAN_NAMES[11:21]  #숫자 클래스
-REGION_HUMAN_NAMES = HUMAN_NAMES[111:-1] #지역문자 클래스
-VREGION_HUMAN_NAMES = HUMAN_NAMES[111:128] #Vertical 지역문자 클래스
-HREGION_HUMAN_NAMES = HUMAN_NAMES[128:145] #Horizontal 지역문자 클래스
-OREGION_HUMAN_NAMES = HUMAN_NAMES[145:162] #Orange 지역문자 클래스
-REGION6_HUMAN_NAMES = HUMAN_NAMES[162:-1] #6 지역문자 클래스
+CH_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[21:111]  #문자열 클래스
+NUM_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[11:21]  #숫자 클래스
+REGION_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[111:-1] #지역문자 클래스
+VREGION_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[111:128] #Vertical 지역문자 클래스
+HREGION_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[128:145] #Horizontal 지역문자 클래스
+OREGION_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[145:162] #Orange 지역문자 클래스
+REGION6_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[162:-1] #6 지역문자 클래스
 
 train_ratio = args.ratio[0]
 validation_ratio = 1.0 - args.ratio[0]
 
-check_class = [];
+class_label = [];
 human_names= [];
 
 if args.object_type == 'ch':        #문자 검사
-    check_class = CH_CLASS
+    class_label = CH_CLASS
     human_names = CH_HUMAN_NAMES
 elif args.object_type == 'n':       #숫자검사
-    check_class = NUM_CLASS
+    class_label = NUM_CLASS
     human_names = NUM_HUMAN_NAMES
     print("{0} type is Not supporeted yet".format(args.object_type))
     sys.exit(0)
 elif args.object_type == 'r':       #지역문자 검사
-    check_class = REGION_CLASS
+    class_label = REGION_CLASS
     human_names = REGION_HUMAN_NAMES
 elif args.object_type == 'vr':       #v 지역문자 검사
-    check_class = VREGION_CLASS
+    class_label = VREGION_CLASS
     human_names = VREGION_HUMAN_NAMES
 elif args.object_type == 'hr':       #h 지역문자 검사
-    check_class = HREGION_CLASS
+    class_label = HREGION_CLASS
     human_names = HREGION_HUMAN_NAMES
 elif args.object_type == 'or':       #o 지역문자 검사
-    check_class = OREGION_CLASS
+    class_label = OREGION_CLASS
     human_names = OREGION_HUMAN_NAMES
 elif args.object_type == 'r6':       #6 지역문자 검사
-    check_class = REGION6_CLASS
+    class_label = REGION6_CLASS
     human_names = REGION6_HUMAN_NAMES      
 else:
     print("{0} type is Not supporeted".format(args.object_type))
@@ -165,7 +165,7 @@ if os.path.exists(args.image_dir):
             for tfile in tfiles:
                 label = tfile.split('_')[1]
                 label = label[0:-4]
-                en_label = check_class[human_names.index(label)]
+                en_label = class_label[human_names.index(label)]
                 en_label_dir = os.path.join(dst_dir,'train',en_label)
                 if not os.path.exists(en_label_dir):
                     createFolder(en_label_dir)
@@ -180,7 +180,7 @@ if os.path.exists(args.image_dir):
             for vfile in vfiles:
                 label = vfile.split('_')[1]
                 label = label[0:-4]
-                en_label = check_class[human_names.index(label)]
+                en_label = class_label[human_names.index(label)]
                 en_label_dir = os.path.join(dst_dir,'validation',en_label)
                 if not os.path.exists(en_label_dir):
                     createFolder(en_label_dir)

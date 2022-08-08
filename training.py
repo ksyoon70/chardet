@@ -31,7 +31,7 @@ IMG_SIZE = 224
 #배치 싸이즈
 BATCH_SIZE = 20
 #epochs
-EPOCHS =  400
+EPOCHS =  100
 backbone = 'resnet50'
 DEFAULT_LABEL_FILE = "./LPR_Labels1.txt"  #라벨 파일이름
 #---------------------------------------------
@@ -73,47 +73,54 @@ parser.add_argument("-l",
 # 검색할 object type를 설정한다. 
 parser.add_argument("-t",
                     "--object_type",
-                    help="object type ch : character n: number r: region", type=str,default='ch')
+                    help="object type ch : character n: number r: region", type=str,default='vr')
 
 
 args = parser.parse_args()
 
 fLabels = pd.read_csv(args.labelfile, header = None )
-CLASS_NAMES = fLabels[0].values.tolist()
-HUMAN_NAMES = fLabels[1].values.tolist()
-CLASS_DIC = dict(zip(CLASS_NAMES, HUMAN_NAMES))
+LABEL_FILE_CLASS = fLabels[0].values.tolist()
+LABEL_FILE_HUMAN_NAMES = fLabels[1].values.tolist()
+CLASS_DIC = dict(zip(LABEL_FILE_CLASS, LABEL_FILE_HUMAN_NAMES))
 
 #클래스를 각각 그룹별로 나눈다.
-CH_CLASS = CLASS_NAMES[21:111]  #문자열 클래스
-NUM_CLASS = CLASS_NAMES[11:21]  #숫자 클래스
-REGION_CLASS = CLASS_NAMES[111:-1] #지역문자 클래스
-VREGION_CLASS = CLASS_NAMES[111:128] #Vertical 지역문자 클래스
-HREGION_CLASS = CLASS_NAMES[128:145] #Horizontal 지역문자 클래스
-OREGION_CLASS = CLASS_NAMES[145:162] #Orange 지역문자 클래스
-REGION6_CLASS = CLASS_NAMES[162:-1] #6 지역문자 클래스
+CH_CLASS = LABEL_FILE_CLASS[21:111]  #문자열 클래스
+NUM_CLASS = LABEL_FILE_CLASS[11:21]  #숫자 클래스
+REGION_CLASS = LABEL_FILE_CLASS[111:-1] #지역문자 클래스
+VREGION_CLASS = LABEL_FILE_CLASS[111:128] #Vertical 지역문자 클래스
+HREGION_CLASS = LABEL_FILE_CLASS[128:145] #Horizontal 지역문자 클래스
+OREGION_CLASS = LABEL_FILE_CLASS[145:162] #Orange 지역문자 클래스
+REGION6_CLASS = LABEL_FILE_CLASS[162:-1] #6 지역문자 클래스
 
 
-
-check_class = [];
+class_str = None   #클래스의 이름을 저장한다.
+class_label = [];
 
 if args.object_type == 'ch':        #문자 검사
-    check_class = CH_CLASS
+    class_label = CH_CLASS
+    class_str = "character"
 elif args.object_type == 'n':       #숫자검사
-    check_class = NUM_CLASS
+    class_label = NUM_CLASS
+    class_str = "number"
     print("{0} type is Not supporeted yet".format(args.object_type))
     sys.exit(0)
 elif args.object_type == 'r':       #지역문자 검사
-    check_class = REGION_CLASS
+    class_label = REGION_CLASS
+    class_str = "region"
 elif args.object_type == 'vr':       #v 지역문자 검사
-    check_class = VREGION_CLASS
+    class_label = VREGION_CLASS
+    class_str = "vregion"
 elif args.object_type == 'hr':       #h 지역문자 검사
-    check_class = HREGION_CLASS
+    class_label = HREGION_CLASS
+    class_str = "hregion"
 elif args.object_type == 'or':       #o 지역문자 검사
-    check_class = OREGION_CLASS
+    class_label = OREGION_CLASS
 elif args.object_type == 'r6':       #6 지역문자 검사
-    check_class = REGION6_CLASS      
+    class_str = "region6"
+    class_label = REGION6_CLASS      
 else:
-    print("{0} type is Not supporeted".format(args.object_type))
+    print("{0} type is Not supported".format(args.object_type))
+    class_str = "Not supported"
     sys.exit(0)
 
 #categorie_list = check_class
@@ -149,7 +156,7 @@ def get_model_path(model_type, backbone="resnet50"):
     main_path = "trained"
     if not os.path.exists(main_path):
         os.makedirs(main_path)
-    model_path = os.path.join(main_path, "{}_{}_model_weights.h5".format(model_type, backbone))
+    model_path = os.path.join(main_path, "{}_{}_{}_model_weights_".format(model_type, backbone,datetime.now().strftime("%Y%m%d-%H%M%S")))
     return model_path
 
 def get_log_path(model_type, backbone="vgg16", custom_postfix=""):
@@ -161,7 +168,10 @@ def get_log_path(model_type, backbone="vgg16", custom_postfix=""):
     outputs:
         log_path = tensorboard log path, for example: "logs/rpn_mobilenet_v2/{date}"
     """
-    return "logs/{}_{}{}/{}".format(model_type, backbone, custom_postfix, datetime.now().strftime("%Y%m%d-%H%M%S"))
+    log_dname = "logs"
+    log_path = os.path.join(log_dname,"{}_{}{}".format(model_type, backbone, custom_postfix),"{}".format(datetime.now().strftime("%Y%m%d-%H%M%S")))
+    
+    return log_path
 
 train_datagen = ImageDataGenerator(
                             rescale=1.0,
@@ -196,11 +206,14 @@ model.summary()
 
 model.compile( loss='categorical_crossentropy', optimizer='adam',metrics=["acc"])
 
-early = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)
+earlystopping = tf.keras.callbacks.EarlyStopping(monitor='val_acc', patience=15)
 # Load weights
-log_path = get_log_path("cls", backbone)
-model_path = get_model_path("cls")
-checkpoint_callback = ModelCheckpoint(model_path, monitor="val_loss", save_best_only=True, save_weights_only=True)
+log_path = get_log_path(class_str, backbone)
+model_sub_path_str = get_model_path(class_str)
+
+checkpoint_callback = ModelCheckpoint(filepath= model_sub_path_str + "epoch_{epoch:02d}_val_acc_{val_acc:.3f}.h5", monitor="val_loss", save_freq='epoch',save_best_only=True, verbose=1, mode='auto' ,save_weights_only=True)
+
+
 tensorboard_callback = TensorBoard(log_dir=log_path)
 
 class_weights = class_weight.compute_class_weight(
@@ -218,11 +231,7 @@ history = model.fit(train_generator,
                               validation_data=validation_generator,
                               validation_steps=validation_steps,
                               #class_weight=class_weights,
-                              callbacks=[checkpoint_callback, tensorboard_callback])
-
-
-model.save('chardet_model.h5',)
-
+                              callbacks=[checkpoint_callback, tensorboard_callback,earlystopping])
 
 
 acc = history.history['acc']
@@ -232,6 +241,8 @@ val_loss = history.history['val_loss']
 
 epochs = range(1, len(acc) + 1)
 
+model_save_filename = "{}_{}_model_epoch_{}_val_acc_{:.4f}_{}.h5".format(class_str,backbone,len(acc),val_acc[-1],datetime.now().strftime("%Y%m%d-%H%M%S"))
+model.save(model_save_filename,)
 
 plt.plot(epochs, acc, 'bo', label ='Training acc')
 plt.plot(epochs, val_acc, 'b', label ='Validation acc')
