@@ -19,10 +19,38 @@ import random
 # 수정할 내용
 MIDDLE_PATH_NAME = 'datasets'
 OUTPUT_FOLDER_NAME = 'out' # labelme로 출력할 디렉토리 이름 (현재 디렉토리 아래로 저장된다.)
-IMAGE_FOLDER_NAME = 'vr_images' #이미지 파일에 있는 영상 파일이 있는 경로
+DEFAULT_OBJ_TYPE = 'or'
 DEFAULT_LABEL_FILE = "./LPR_Labels1.txt"  #라벨 파일이름
 option_move = False # 원 파일을 옮길지 여부
 #------------------------------
+class_str = None   #클래스의 이름을 저장한다.
+
+if DEFAULT_OBJ_TYPE == 'ch':        #문자 검사
+    IMAGE_FOLDER_NAME = 'ch_images'
+    class_str = "character"
+elif DEFAULT_OBJ_TYPE == 'hr':       #숫자검사
+    IMAGE_FOLDER_NAME = 'hr_images'
+    class_str = "hregion"
+elif DEFAULT_OBJ_TYPE == 'vr':     #지역문자 검사
+    IMAGE_FOLDER_NAME = 'vr_images'
+    class_str = "vregion"
+elif DEFAULT_OBJ_TYPE == 'or':       #v 지역문자 검사
+     IMAGE_FOLDER_NAME = 'or_images'
+     class_str = "oregion"
+elif DEFAULT_OBJ_TYPE == 'r6':     #h 지역문자 검사
+     IMAGE_FOLDER_NAME = 'r6_images'
+     class_str = "region6"
+elif DEFAULT_OBJ_TYPE == 'r' :       #r 지역문자 검사
+     IMAGE_FOLDER_NAME = 'r_images'
+     class_str = "region"
+elif DEFAULT_OBJ_TYPE == 'n':       #6 지역문자 검사
+     IMAGE_FOLDER_NAME = 'n_images'
+     class_str = "number"     
+else:
+    print("{0} image folder name is Not supporeted".format(IMAGE_FOLDER_NAME))
+    sys.exit(0)
+    
+OUTPUT_FOLDER_NAME = class_str
 
 ROOT_DIR = os.path.dirname(__file__)
 DEFAULT_IMAGES_PATH = os.path.join(ROOT_DIR,MIDDLE_PATH_NAME,IMAGE_FOLDER_NAME)
@@ -49,7 +77,7 @@ parser.add_argument("-o",
 # 검색할 object type를 설정한다. 
 parser.add_argument("-t",
                     "--object_type",
-                    help="object type ch : character n: number r: region", type=str,default='hr')
+                    help="object type ch : character n: number r: region", type=str,default=DEFAULT_OBJ_TYPE)
 # training / validateion  비율을 설정한다.
 parser.add_argument("-r",
                     "--ratio", type=float,
@@ -127,16 +155,25 @@ if not os.path.exists(args.output_dir) :
  
 
 #클래스 디렉토리를 만든다.
-"""
-for label in check_class :
-    label_dir = os.path.join(args.output_dir,label)
-    if not os.path.exists(label_dir):
-        createFolder(label_dir)
-"""
+#파일이 없는데도 만들어야 하는지 모르겠지만, 일단 만드는 코드는 아래 내용이다.
+#확인 결과 없는 영상에 대해서는 class가 무의미하다.
+
+# for label in class_label :
+#     tlabel_dir = os.path.join(args.output_dir,'train',label)
+#     if not os.path.exists(tlabel_dir):
+#         createFolder(tlabel_dir)
+#     vlabel_dir = os.path.join(args.output_dir,'validation',label)
+#     if not os.path.exists(vlabel_dir):
+#         createFolder(vlabel_dir)
+
 
 # images 디렉토리에서 image 파일을 하나씩 읽어 들인다. 
 src_dir = args.image_dir
 dst_dir = args.output_dir
+
+print('{} 에 파일에서 영상을 읽습니다.'.format(src_dir ))
+print('{} 에 파일을 저장합니다.'.format(dst_dir ))
+
 if os.path.exists(args.image_dir):
     image_ext = ['jpg','JPG','png','PNG']
     files = [fn for fn in os.listdir(src_dir)

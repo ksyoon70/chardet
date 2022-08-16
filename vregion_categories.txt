@@ -1,0 +1,15 @@
+vBuSan
+vChungBuk
+vChungNam
+vDaeGu
+vDaeJeon
+vGangwon
+vGwangJu
+vGyeongBuk
+vGyeongGi
+vGyeongNam
+vIncheon
+vJeonBuk
+vJeonNam
+vSeoul
+vUlSan

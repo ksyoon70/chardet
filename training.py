@@ -31,9 +31,10 @@ IMG_SIZE = 224
 #배치 싸이즈
 BATCH_SIZE = 20
 #epochs
-EPOCHS =  100
+EPOCHS =  200
 backbone = 'resnet50'
 DEFAULT_LABEL_FILE = "./LPR_Labels1.txt"  #라벨 파일이름
+DEFAULT_OBJ_TYPE = 'or'#'ch'
 #---------------------------------------------
 
 ROOT_DIR = os.getcwd()
@@ -44,19 +45,6 @@ sys.path.append(ROOT_DIR)
 base_dir = os.path.join(ROOT_DIR,'datasets')
 if not os.path.isdir(base_dir):
     os.mkdir(base_dir)
-
-train_dir = os.path.join(base_dir,'train')
-if not os.path.isdir(train_dir):
-    os.mkdir(train_dir)
-
-validation_dir = os.path.join(base_dir,'validation')
-if not os.path.isdir(validation_dir):
-    os.mkdir(validation_dir)
-
-test_dir = os.path.join(base_dir,'test')
-if not os.path.isdir(test_dir):
-    os.mkdir(test_dir)
-
 
 logs_dir = os.path.join(ROOT_DIR,'logs')
 #로그 디렉토리 만들기
@@ -73,7 +61,7 @@ parser.add_argument("-l",
 # 검색할 object type를 설정한다. 
 parser.add_argument("-t",
                     "--object_type",
-                    help="object type ch : character n: number r: region", type=str,default='vr')
+                    help="object type ch : character n: number r: region", type=str,default=DEFAULT_OBJ_TYPE)
 
 
 args = parser.parse_args()
@@ -115,6 +103,7 @@ elif args.object_type == 'hr':       #h 지역문자 검사
     class_str = "hregion"
 elif args.object_type == 'or':       #o 지역문자 검사
     class_label = OREGION_CLASS
+    class_str = "oregion"
 elif args.object_type == 'r6':       #6 지역문자 검사
     class_str = "region6"
     class_label = REGION6_CLASS      
@@ -122,6 +111,22 @@ else:
     print("{0} type is Not supported".format(args.object_type))
     class_str = "Not supported"
     sys.exit(0)
+    
+class_dir = os.path.join(base_dir,class_str)
+if not os.path.isdir(class_dir):
+    os.mkdir(class_dir)
+    
+train_dir = os.path.join(base_dir,class_str,'train')
+if not os.path.isdir(train_dir):
+    os.mkdir(train_dir)
+
+validation_dir = os.path.join(base_dir,class_str,'validation')
+if not os.path.isdir(validation_dir):
+    os.mkdir(validation_dir)
+
+test_dir = os.path.join(base_dir,class_str,'test')
+if not os.path.isdir(test_dir):
+    os.mkdir(test_dir)
 
 #categorie_list = check_class
 categorie_list = os.listdir(train_dir)
@@ -130,6 +135,12 @@ categorie_list = natsort.natsorted(categorie_list)
 for categorie in categorie_list:
     categories.append(categorie)
     
+categories_str = class_str + '_categories.txt'
+
+with open(categories_str, "w") as f:
+    for categorie in categories :
+        f.write(categorie + '\n')
+   
 
 train_data_count =  sum(len(files) for _, _, files in os.walk(train_dir))
 val_data_count = sum(len(files) for _, _, files in os.walk(validation_dir))
@@ -206,7 +217,7 @@ model.summary()
 
 model.compile( loss='categorical_crossentropy', optimizer='adam',metrics=["acc"])
 
-earlystopping = tf.keras.callbacks.EarlyStopping(monitor='val_acc', patience=15)
+earlystopping = tf.keras.callbacks.EarlyStopping(monitor='val_acc', patience=10)
 # Load weights
 log_path = get_log_path(class_str, backbone)
 model_sub_path_str = get_model_path(class_str)
@@ -221,7 +232,9 @@ class_weights = class_weight.compute_class_weight(
                 np.unique(train_generator.classes), 
                 train_generator.classes) 
 
-class_weights = {i : class_weights[i] for i in range(len(categories))}
+class_weights = {i : class_weights[i] for i in range(len(class_weights))}
+
+
 #calculate steps_per_epoch and validation_steps
 steps_per_epoch = int(train_data_count/BATCH_SIZE)
 validation_steps = int(val_data_count/BATCH_SIZE)

@@ -1,0 +1,17 @@
+hBuSan
+hChungBuk
+hChungNam
+hDaeGu
+hDaeJeon
+hGangwon
+hGwangJu
+hGyeongBuk
+hGyeongGi
+hGyeongNam
+hIncheon
+hJeJu
+hJeonBuk
+hJeonNam
+hSeJong
+hSeoul
+hUlSan

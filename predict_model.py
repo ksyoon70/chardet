@@ -44,8 +44,8 @@ show_images = True
 file_move = False
 TEST_DIR_NAME = 'vr_test'
 RESULT_DIR_NAME = 'vr_result'
-MODEL_FILE_NAME ='vregion_resnet50_model_epoch_27_val_acc_0.8250_20220809-002051.h5'
-WEIGHT_FILE_NAME = 'vregion_resnet50_20220809-002018_model_weights_epoch_26_val_acc_0.837.h5'
+MODEL_FILE_NAME ='vregion_resnet50_model_epoch_33_val_acc_0.7750_20220810-083901.h5'
+WEIGHT_FILE_NAME = 'vregion_resnet50_20220810-084301_model_weights_epoch_26_val_acc_0.800.h5'
 #----------------------------
 
 categories = []
