@@ -15,11 +15,13 @@ import argparse
 import pandas as pd
 from label_tools import *
 import random
+import math
+
 #------------------------------
 # 수정할 내용
 MIDDLE_PATH_NAME = 'datasets'
 OUTPUT_FOLDER_NAME = 'out' # labelme로 출력할 디렉토리 이름 (현재 디렉토리 아래로 저장된다.)
-DEFAULT_OBJ_TYPE = 'or'
+DEFAULT_OBJ_TYPE = 'hr'
 DEFAULT_LABEL_FILE = "./LPR_Labels1.txt"  #라벨 파일이름
 option_move = False # 원 파일을 옮길지 여부
 #------------------------------
@@ -230,6 +232,55 @@ if os.path.exists(args.image_dir):
                     shutil.copy(src,dst)
     else :
         print('처리할 파일이 없습니다')
+        
+    #valid에는 있는데 train에는 없는 파일들을 train에 복사한다.
+    #먼저 train의 하위 디렉토리를 구한다.
+    dst_train_dir = os.listdir(os.path.join(dst_dir,'train'))
+    #validation의 하위 디렉토리를 구한다.
+    dst_valid_dir = os.listdir(os.path.join(dst_dir,'validation'))
+    
+    not_in_train_dir = [ dir_name for dir_name in dst_valid_dir if not dir_name  in dst_train_dir ] 
+    # 없는 파일을 train으로 비율만큼 복사한다.
+    
+    for dir_name in not_in_train_dir :
+        dir_path = os.path.join(dst_dir,'validation',dir_name)
+        if not os.path.exists(dir_path) :
+            createFolder(dir_path)
+        file_len = len(os.listdir(dir_path))
+        filelist = os.listdir(dir_path)     
+        random.shuffle(filelist)
+        copy_file_count = math.ceil(file_len*train_ratio)
+        copy_file_list = filelist[0:copy_file_count]
+        
+        for file in copy_file_list:
+            src = os.path.join(dst_dir,'validation',dir_name,file)
+            dst = os.path.join(dst_dir,'train',dir_name,file)
+            dst_directory = os.path.join(dst_dir,'train',dir_name)
+            if not os.path.exists(dst_directory) :
+                createFolder(dst_directory)
+            shutil.copy(src,dst)
+    
+    #반대 과정을 한다. 
+    not_in_valid_dir = [ dir_name for dir_name in dst_train_dir if not dir_name  in dst_valid_dir]  
+        
+    for dir_name in not_in_valid_dir :
+        dir_path = os.path.join(dst_dir,'train',dir_name)
+        if not os.path.exists(dir_path) :
+            createFolder(dir_path)
+        file_len = len(os.listdir(dir_path))
+        filelist = os.listdir(dir_path)           
+        random.shuffle(filelist)
+        copy_file_count = math.ceil(file_len*validation_ratio)
+        copy_file_list = filelist[0:copy_file_count]
+        
+        for file in copy_file_list:
+            src = os.path.join(dst_dir,'train',dir_name,file)
+            dst = os.path.join(dst_dir,'validation',dir_name,file)
+            dst_directory = os.path.join(dst_dir,'validation',dir_name)
+            if not os.path.exists(dst_directory) :
+                createFolder(dst_directory)
+            shutil.copy(src,dst)    
+        
 
     print('처리완료')      
 else :
