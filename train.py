@@ -23,18 +23,21 @@ import numpy as np
 import argparse
 import pandas as pd
 import natsort
+import cv2
+from PIL import Image
+
 K.set_learning_phase(0)
 
 #---------------------------------------------
 #이미지 크기 조정 크기
 IMG_SIZE = 224
 #배치 싸이즈
-BATCH_SIZE = 20
+BATCH_SIZE = 32
 #epochs
 EPOCHS =  200
 backbone = 'resnet50'
 DEFAULT_LABEL_FILE = "./LPR_Labels1.txt"  #라벨 파일이름
-DEFAULT_OBJ_TYPE = 'or'#'ch'
+DEFAULT_OBJ_TYPE = 'hr'#'ch'
 #---------------------------------------------
 
 ROOT_DIR = os.getcwd()
@@ -128,7 +131,6 @@ test_dir = os.path.join(base_dir,class_str,'test')
 if not os.path.isdir(test_dir):
     os.mkdir(test_dir)
 
-#categorie_list = check_class
 categorie_list = os.listdir(train_dir)
 categories = []
 categorie_list = natsort.natsorted(categorie_list)
@@ -167,7 +169,7 @@ def get_model_path(model_type, backbone="resnet50"):
     main_path = "trained"
     if not os.path.exists(main_path):
         os.makedirs(main_path)
-    model_path = os.path.join(main_path, "{}_{}_{}_model_weights_".format(model_type, backbone,datetime.now().strftime("%Y%m%d-%H%M%S")))
+    model_path = os.path.join(main_path, "{}_{}_{}_weights_".format(model_type, backbone,datetime.now().strftime("%Y%m%d-%H%M%S")))
     return model_path
 
 def get_log_path(model_type, backbone="vgg16", custom_postfix=""):
@@ -184,16 +186,22 @@ def get_log_path(model_type, backbone="vgg16", custom_postfix=""):
     
     return log_path
 
+def colortogray(image):
+    image = np.array(image)
+    hsv_image = cv2.cvtColor(image,cv2.COLOR_RGB2HSV)
+    return Image.fromarray(hsv_image)
+
 train_datagen = ImageDataGenerator(
-                            rescale=1.0,
-                            rotation_range=5,
+                            rotation_range=30,
                              width_shift_range=0.2,
                              height_shift_range=0.2,
                              shear_range=0.2,
-                             zoom_range=0.2)
+                             zoom_range=[0.7,1.0],
+                             #horizontal_flip=True,
+                             #preprocessing_function = colortogrey,
+                             brightness_range=[0.2,1.0])
 
-#train_datagen = ImageDataGenerator(rescale=1./255)
-valid_datagen = ImageDataGenerator(rescale=1.0)
+valid_datagen = ImageDataGenerator()
 
 
 train_generator = train_datagen.flow_from_directory(train_dir,
@@ -222,10 +230,30 @@ earlystopping = tf.keras.callbacks.EarlyStopping(monitor='val_acc', patience=10)
 log_path = get_log_path(class_str, backbone)
 model_sub_path_str = get_model_path(class_str)
 
-checkpoint_callback = ModelCheckpoint(filepath= model_sub_path_str + "epoch_{epoch:02d}_val_acc_{val_acc:.3f}.h5", monitor="val_loss", save_freq='epoch',save_best_only=True, verbose=1, mode='auto' ,save_weights_only=True)
 
+weight_filename = model_sub_path_str + "epoch_{epoch:02d}_val_acc_{val_acc:.3f}.h5"
+checkpoint_callback = ModelCheckpoint(filepath=weight_filename , monitor="val_acc", save_freq='epoch',save_best_only=True, verbose=1, mode='auto' ,save_weights_only=True)
 
 tensorboard_callback = TensorBoard(log_dir=log_path)
+
+class CustomHistory(tf.keras.callbacks.Callback):
+    def init(self, logs={}):
+        self.train_loss = []
+        self.val_loss = []
+        self.train_acc = []
+        self.val_acc = []
+        
+    def on_epoch_end(self, batch, logs={}):
+        self.train_loss.append(logs.get('loss'))
+        self.val_loss.append(logs.get('val_loss'))
+        self.train_acc.append(logs.get('acc'))
+        self.val_acc.append(logs.get('val_acc'))
+        print('\nepoch={}, 현재 최대 val_acc={}'.format(batch,max(self.val_acc)))
+
+
+custom_hist = CustomHistory()
+custom_hist.init()
+
 
 class_weights = class_weight.compute_class_weight(
                'balanced',
@@ -244,7 +272,7 @@ history = model.fit(train_generator,
                               validation_data=validation_generator,
                               validation_steps=validation_steps,
                               #class_weight=class_weights,
-                              callbacks=[checkpoint_callback, tensorboard_callback,earlystopping])
+                              callbacks=[checkpoint_callback,tensorboard_callback,earlystopping,custom_hist])
 
 
 acc = history.history['acc']
@@ -254,7 +282,9 @@ val_loss = history.history['val_loss']
 
 epochs = range(1, len(acc) + 1)
 
-model_save_filename = "{}_{}_model_epoch_{}_val_acc_{:.4f}_{}.h5".format(class_str,backbone,len(acc),val_acc[-1],datetime.now().strftime("%Y%m%d-%H%M%S"))
+print('last weight filename is {}'.format(weight_filename))
+
+model_save_filename = "{}_{}_{}_model_epoch_{}_val_acc_{:.4f}.h5".format(class_str,backbone,datetime.now().strftime("%Y%m%d-%H%M%S"),len(acc),val_acc[-1])
 model.save(model_save_filename,)
 
 plt.plot(epochs, acc, 'bo', label ='Training acc')

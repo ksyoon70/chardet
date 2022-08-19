@@ -18,9 +18,9 @@ def get_Model(categories_len):
     # ResNet50 불러오기 -> include_top = False로 바꾸는 것이 포인트
    
     base_model = ResNet50(include_top=False, pooling = 'avg' , input_shape = input_shape, weights = 'imagenet')
-    base_model.trainable = False
+    base_model.trainable = True
 
-    for layer in base_model.layers:
+    for layer in base_model.layers[:143]:
         layer.trainable = False 
     
     model = tf.keras.models.Sequential()

@@ -21,7 +21,7 @@ import math
 # 수정할 내용
 MIDDLE_PATH_NAME = 'datasets'
 OUTPUT_FOLDER_NAME = 'out' # labelme로 출력할 디렉토리 이름 (현재 디렉토리 아래로 저장된다.)
-DEFAULT_OBJ_TYPE = 'hr'
+DEFAULT_OBJ_TYPE = 'or'
 DEFAULT_LABEL_FILE = "./LPR_Labels1.txt"  #라벨 파일이름
 option_move = False # 원 파일을 옮길지 여부
 #------------------------------
@@ -150,7 +150,9 @@ else:
 if not os.path.exists(args.image_dir) :
     print("No images folder exists. check the folder :",args.image_dir)
     sys.exit(0)
-    
+ 
+ #기존 폴더 아래 있는 출력 폴더를 지운다.
+shutil.rmtree(args.output_dir)   
 
 if not os.path.exists(args.output_dir) :
     createFolder(args.output_dir)
