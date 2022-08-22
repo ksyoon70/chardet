@@ -2,6 +2,7 @@
 #from keras.optimizers import Adadelta
 #from keras.callbacks import EarlyStopping, ModelCheckpoint
 import os,sys
+from tkinter.messagebox import NO
 from tensorflow.keras import backend as K
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adadelta
@@ -24,7 +25,9 @@ import argparse
 import pandas as pd
 import natsort
 import cv2
+import shutil
 from PIL import Image
+from pathlib import Path
 
 K.set_learning_phase(0)
 
@@ -34,10 +37,11 @@ IMG_SIZE = 224
 #배치 싸이즈
 BATCH_SIZE = 32
 #epochs
-EPOCHS =  200
+EPOCHS =  50
 backbone = 'resnet50'
 DEFAULT_LABEL_FILE = "./LPR_Labels1.txt"  #라벨 파일이름
-DEFAULT_OBJ_TYPE = 'hr'#'ch'
+DEFAULT_OBJ_TYPE = 'ch'#'ch'
+OBJECT_DETECTION_API_PATH = 'C://SPB_Data//RealTimeObjectDetection-main'
 #---------------------------------------------
 
 ROOT_DIR = os.getcwd()
@@ -86,29 +90,44 @@ REGION6_CLASS = LABEL_FILE_CLASS[162:-1] #6 지역문자 클래스
 
 class_str = None   #클래스의 이름을 저장한다.
 class_label = [];
-
+model_dir = None
+categorie_filename = None 
 if args.object_type == 'ch':        #문자 검사
     class_label = CH_CLASS
     class_str = "character"
+    model_dir = 'char_model'
+    categorie_filename = 'character_categories.txt'
 elif args.object_type == 'n':       #숫자검사
     class_label = NUM_CLASS
     class_str = "number"
+    model_dir = 'n_model'
+    categorie_filename = 'number_categories.txt'
     print("{0} type is Not supporeted yet".format(args.object_type))
     sys.exit(0)
 elif args.object_type == 'r':       #지역문자 검사
     class_label = REGION_CLASS
     class_str = "region"
+    model_dir = 'r_model'
+    categorie_filename = 'region_categories.txt'
 elif args.object_type == 'vr':       #v 지역문자 검사
     class_label = VREGION_CLASS
     class_str = "vregion"
+    model_dir = 'vreg_model'
+    categorie_filename = 'vregion_categories.txt'
 elif args.object_type == 'hr':       #h 지역문자 검사
     class_label = HREGION_CLASS
     class_str = "hregion"
+    model_dir = 'hreg_model'
+    categorie_filename = 'hregion_categories.txt'
 elif args.object_type == 'or':       #o 지역문자 검사
     class_label = OREGION_CLASS
     class_str = "oregion"
+    model_dir = 'oreg_model'
+    categorie_filename = 'oregion_categories.txt'
 elif args.object_type == 'r6':       #6 지역문자 검사
     class_str = "region6"
+    model_dir = 'reg6_model'
+    categorie_filename = 'region6_categories.txt'
     class_label = REGION6_CLASS      
 else:
     print("{0} type is Not supported".format(args.object_type))
@@ -223,7 +242,7 @@ validation_generator = valid_datagen.flow_from_directory(validation_dir,
 
 model.summary()
 
-model.compile( loss='categorical_crossentropy', optimizer='adam',metrics=["acc"])
+model.compile( loss='categorical_crossentropy', optimizer=Adam(lr=0.001),metrics=["acc"])
 
 earlystopping = tf.keras.callbacks.EarlyStopping(monitor='val_acc', patience=10)
 # Load weights
@@ -231,7 +250,7 @@ log_path = get_log_path(class_str, backbone)
 model_sub_path_str = get_model_path(class_str)
 
 
-weight_filename = model_sub_path_str + "epoch_{epoch:02d}_val_acc_{val_acc:.3f}.h5"
+weight_filename = model_sub_path_str + "epoch_{epoch:03d}_val_acc_{val_acc:.3f}.h5"
 checkpoint_callback = ModelCheckpoint(filepath=weight_filename , monitor="val_acc", save_freq='epoch',save_best_only=True, verbose=1, mode='auto' ,save_weights_only=True)
 
 tensorboard_callback = TensorBoard(log_dir=log_path)
@@ -243,12 +262,16 @@ class CustomHistory(tf.keras.callbacks.Callback):
         self.train_acc = []
         self.val_acc = []
         
-    def on_epoch_end(self, batch, logs={}):
+    def on_epoch_end(self, epoch, logs={}):
+        if len(self.val_acc):
+            if logs.get('val_acc') > max(self.val_acc) :
+                global weight_filename
+                weight_filename = model_sub_path_str + "epoch_{0:03d}_val_acc_{1:.3f}.h5".format(epoch+1,logs.get('val_acc'))
         self.train_loss.append(logs.get('loss'))
         self.val_loss.append(logs.get('val_loss'))
         self.train_acc.append(logs.get('acc'))
         self.val_acc.append(logs.get('val_acc'))
-        print('\nepoch={}, 현재 최대 val_acc={}'.format(batch,max(self.val_acc)))
+        #print('\nepoch={}, 현재 최대 val_acc={}'.format(epoch,max(self.val_acc)))
 
 
 custom_hist = CustomHistory()
@@ -286,6 +309,30 @@ print('last weight filename is {}'.format(weight_filename))
 
 model_save_filename = "{}_{}_{}_model_epoch_{}_val_acc_{:.4f}.h5".format(class_str,backbone,datetime.now().strftime("%Y%m%d-%H%M%S"),len(acc),val_acc[-1])
 model.save(model_save_filename,)
+
+
+
+#기존 폴더 아래 있는 출력 폴더를 지운다.
+model_path = os.path.join(OBJECT_DETECTION_API_PATH,model_dir)
+model_list = os.listdir(model_path)
+if( len(model_list)):
+    for fn in model_list:
+        os.remove(os.path.join(model_path,fn))
+        
+#결과 파일을 복사한다.
+#weight file 복사
+src_fn = weight_filename
+dst_fn = os.path.join(model_path,os.path.basename(src_fn))
+shutil.copy(src_fn,dst_fn)
+# 카테고리 파일 복사
+src_fn = categorie_filename
+dst_fn = os.path.join(model_path,src_fn)
+shutil.copy(src_fn,dst_fn)
+# 모델 파일 복사
+src_fn = model_save_filename
+dst_fn = os.path.join(model_path,src_fn)
+shutil.copy(src_fn,dst_fn)
+
 
 plt.plot(epochs, acc, 'bo', label ='Training acc')
 plt.plot(epochs, val_acc, 'b', label ='Validation acc')

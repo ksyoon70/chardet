@@ -1,6 +1,5 @@
 import tensorflow as tf
 from keras import backend as K
-from tensorflow.keras.applications.resnet50 import preprocess_input
 from tensorflow.keras.applications.resnet50 import ResNet50
 from tensorflow.keras.layers import Conv2D, MaxPooling2D
 from tensorflow.keras.layers import Input, Dense, Activation
@@ -20,8 +19,8 @@ def get_Model(categories_len):
     base_model = ResNet50(include_top=False, pooling = 'avg' , input_shape = input_shape, weights = 'imagenet')
     base_model.trainable = True
 
-    for layer in base_model.layers[:143]:
-        layer.trainable = False 
+    for layer in base_model.layers[:143]:    
+         layer.trainable = False 
     
     model = tf.keras.models.Sequential()
     model.add(base_model)
