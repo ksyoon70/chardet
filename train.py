@@ -123,6 +123,7 @@ elif args.object_type == 'or':       #o 지역문자 검사
     class_label = OREGION_CLASS
     class_str = "oregion"
     model_dir = 'oreg_model'
+    BATCH_SIZE = 4 # 갯수가 작아서 에러가 날수 있으므로...
     categorie_filename = 'oregion_categories.txt'
 elif args.object_type == 'r6':       #6 지역문자 검사
     class_str = "region6"

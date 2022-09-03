@@ -5,7 +5,7 @@ Created on Sun Jul 31 14:42:45 2022
 @author: headway
 """
 import numpy as np
-import os, shutil
+import os, shutil, sys
 import tensorflow as tf
 import matplotlib.pyplot as plt
 # 한글 폰트 사용을 위해서 세팅
@@ -40,12 +40,13 @@ config = tf.config.experimental.set_memory_growth(physical_devices[0], True)
 DEFAULT_LABEL_FILE = "./LPR_Labels1.txt"  #라벨 파일이름
 IMG_SIZE = 224
 THRESH_HOLD = 0.8
-show_images = True
+show_images = False
 file_move = False
-TEST_DIR_NAME = 'vr_test'
-RESULT_DIR_NAME = 'vr_result'
-MODEL_FILE_NAME ='vregion_resnet50_model_epoch_33_val_acc_0.7750_20220810-083901.h5'
-WEIGHT_FILE_NAME = 'vregion_resnet50_20220810-084301_model_weights_epoch_26_val_acc_0.800.h5'
+TEST_DIR_NAME = 'test'
+RESULT_DIR_NAME = 'result'
+DEFAULT_OBJ_TYPE = 'ch'
+MODEL_FILE_NAME ='character_resnet50_20220903-155648_model_epoch_27_val_acc_0.9005.h5'
+WEIGHT_FILE_NAME = 'character_resnet50_20220903-154856_weights_epoch_017_val_acc_0.927.h5'
 #----------------------------
 
 categories = []
@@ -67,9 +68,45 @@ LABEL_FILE_CLASS = fLabels[0].values.tolist()
 LABEL_FILE_HUMAN_NAMES = fLabels[1].values.tolist()
 CLASS_DIC = dict(zip(LABEL_FILE_CLASS, LABEL_FILE_HUMAN_NAMES))
 
+if DEFAULT_OBJ_TYPE == 'ch':        #문자 검사
+    class_str = "character"
+    model_dir = 'char_model'
+    categorie_filename = 'character_categories.txt'
+elif DEFAULT_OBJ_TYPE == 'n':       #숫자검사
+    class_str = "number"
+    model_dir = 'n_model'
+    categorie_filename = 'number_categories.txt'
+    print("{0} type is Not supporeted yet".format(args.object_type))
+    sys.exit(0)
+elif DEFAULT_OBJ_TYPE == 'r':       #지역문자 검사
+    class_str = "region"
+    model_dir = 'r_model'
+    categorie_filename = 'region_categories.txt'
+elif DEFAULT_OBJ_TYPE == 'vr':       #v 지역문자 검사
+    class_str = "vregion"
+    model_dir = 'vreg_model'
+    categorie_filename = 'vregion_categories.txt'
+elif DEFAULT_OBJ_TYPE == 'hr':       #h 지역문자 검사
+    class_str = "hregion"
+    model_dir = 'hreg_model'
+    categorie_filename = 'hregion_categories.txt'
+elif DEFAULT_OBJ_TYPE == 'or':       #o 지역문자 검사
+    class_str = "oregion"
+    model_dir = 'oreg_model'
+    BATCH_SIZE = 4 # 갯수가 작아서 에러가 날수 있으므로...
+    categorie_filename = 'oregion_categories.txt'
+elif DEFAULT_OBJ_TYPE == 'r6':       #6 지역문자 검사
+    class_str = "region6"
+    model_dir = 'reg6_model'
+    categorie_filename = 'region6_categories.txt'
+else:
+    print("{0} type is Not supported".format(args.object_type))
+    class_str = "Not supported"
+    sys.exit(0)
 
-
-
+catLabels = pd.read_csv(categorie_filename, header = None )
+categories = catLabels[0].values.tolist()
+categories.append('no_categorie')
 
 base_dir = './datasets'
 
@@ -144,8 +181,8 @@ if len(os.listdir(src_dir)):
             img = image.load_img(img_path,target_size=(IMG_SIZE,IMG_SIZE))
             img_tensor = image.img_to_array(img)
             img_tensor = np.expand_dims(img_tensor,axis=0)
-            if show_images :
-                img_data = img_tensor/255.
+            #if show_images :
+            img_data = img_tensor/255.
             
             preds = model.predict(img_tensor)
             
@@ -153,7 +190,7 @@ if len(os.listdir(src_dir)):
             
             src = os.path.join(src_dir,file)
            
-            gtrue_label = file.split('_')[1]
+            gtrue_label = file.split('_')[-1]
             gtrue_label = gtrue_label[0:-4]
             
             if preds[0][index] > THRESH_HOLD :
@@ -184,11 +221,13 @@ if len(os.listdir(src_dir)):
         
 end_time = time.time()        
 print("수행시간: {:.2f}".format(end_time - start_time))
+print("총샘플수: {}".format(total_test_files))
 print("건당 수행시간 : {:.2f}".format((end_time - start_time)/total_test_files))             
-print('인식률: {:}'.format(recog_count) +'  ({:.2f})'.format(recog_count*100/total_test_files) + ' %')
-print('정인식: {:}'.format(true_recog_count) +'  ({:.2f})'.format(true_recog_count*100/recog_count) + ' %')
-print('오인식: {:}'.format(false_recog_count) +'  ({:.2f})'.format(false_recog_count*100/recog_count) + ' %')
-print('인식실패: {}'.format(fail_count) +'  ({:.2f})'.format(fail_count*100/total_test_files) + ' %')         
+print('인식률: {:}/{}'.format(recog_count,total_test_files) +'  ({:.2f})'.format(recog_count*100/total_test_files) + ' %')
+print('인식한것중 정인식: {:}/{}'.format(true_recog_count,recog_count) +'  ({:.2f})'.format(true_recog_count*100/recog_count) + ' %')
+print('인식한것중 오인식: {:}/{}'.format(false_recog_count,recog_count) +'  ({:.2f})'.format(false_recog_count*100/recog_count) + ' %')
+print('인식실패: {}/{}'.format(fail_count,total_test_files) +'  ({:.2f})'.format(fail_count*100/total_test_files) + ' %')
+print('전체샘플중 정인식률: {}/{}'.format(true_recog_count,total_test_files) +'  ({:.2f})'.format(true_recog_count*100/total_test_files) + ' %')    
         
         
 

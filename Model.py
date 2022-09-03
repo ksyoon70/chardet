@@ -22,11 +22,12 @@ def get_Model(categories_len):
     for layer in base_model.layers[:143]:    
          layer.trainable = False 
     
+    base_model.summary()
     model = tf.keras.models.Sequential()
     model.add(base_model)
     model.add(layers.Flatten())
     model.add(layers.Dense(2048,activation='relu'))
-    model.add(layers.Dropout(0.5))
+    model.add(layers.Dropout(0.3))
     model.add(layers.Dense(categories_len,activation='softmax'))
 
     return model
