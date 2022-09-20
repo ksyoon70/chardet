@@ -158,7 +158,8 @@ for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
         sys.exit(0)
     
     #기존 폴더 아래 있는 출력 폴더를 지운다.
-    shutil.rmtree(args.output_dir)   
+    if os.path.exists(args.output_dir) :
+        shutil.rmtree(args.output_dir) 
 
     if not os.path.exists(args.output_dir) :
         createFolder(args.output_dir)
@@ -190,7 +191,7 @@ for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
                     if any(fn.endswith(ext) for ext in image_ext)]
         sfiles = []  #source file list
         for file in files:
-            label = file.split('_')[1]
+            label = file.split('_')[-1]
             label = label[0:-4]
             # english class label을 얻는다. 
             if label in human_names :
@@ -210,7 +211,7 @@ for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
             print('train 파일갯수 : {0} validation 파일갯수 : {1}'.format(len(tfiles),len(vfiles)))
             if len(tfiles) :
                 for tfile in tfiles:
-                    label = tfile.split('_')[1]
+                    label = tfile.split('_')[-1]
                     label = label[0:-4]
                     en_label = class_label[human_names.index(label)]
                     en_label_dir = os.path.join(dst_dir,'train',en_label)
@@ -225,7 +226,7 @@ for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
                         shutil.copy(src,dst)
             if len(vfiles) :
                 for vfile in vfiles:
-                    label = vfile.split('_')[1]
+                    label = vfile.split('_')[-1]
                     label = label[0:-4]
                     en_label = class_label[human_names.index(label)]
                     en_label_dir = os.path.join(dst_dir,'validation',en_label)

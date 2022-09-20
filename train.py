@@ -40,7 +40,7 @@ BATCH_SIZE = 32
 EPOCHS =  50
 backbone = 'resnet50'
 DEFAULT_LABEL_FILE = "./LPR_Labels1.txt"  #라벨 파일이름
-DEFAULT_OBJ_TYPE = 'ch'#'ch'
+DEFAULT_OBJ_TYPE = 'or'#'ch' 'hr', 'vr', 'or'
 OBJECT_DETECTION_API_PATH = 'C://SPB_Data//RealTimeObjectDetection-main'
 #---------------------------------------------
 
