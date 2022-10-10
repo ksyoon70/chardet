@@ -24,10 +24,11 @@ OUTPUT_FOLDER_NAME = 'out' # labelme로 출력할 디렉토리 이름 (현재 �
 DEFAULT_OBJ_TYPE = 'or'
 DEFAULT_LABEL_FILE = "./LPR_Labels1.txt"  #라벨 파일이름
 option_move = False # 원 파일을 옮길지 여부
+INCULUDE_R6_TO_OREGION = True   #r6 번호판을 or 에 포함 할지 여부
 #------------------------------
 class_str = None   #클래스의 이름을 저장한다.
 
-OBJECT_TYPES = ['ch','hr','vr','or']
+OBJECT_TYPES = ['ch','hr','vr','or','r6']
 
 for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
 
@@ -45,7 +46,10 @@ for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
         class_str = "oregion"
     elif DEFAULT_OBJ_TYPE == 'r6':     #h 지역문자 검사
         IMAGE_FOLDER_NAME = 'r6_images'
-        class_str = "region6"
+        if INCULUDE_R6_TO_OREGION:
+            class_str = "oregion"
+        else :
+            class_str = "region6"
     elif DEFAULT_OBJ_TYPE == 'r' :       #r 지역문자 검사
         IMAGE_FOLDER_NAME = 'r_images'
         class_str = "region"
@@ -144,7 +148,10 @@ for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
         class_label = OREGION_CLASS
         human_names = OREGION_HUMAN_NAMES
     elif args.object_type == 'r6':       #6 지역문자 검사
-        class_label = REGION6_CLASS
+        if INCULUDE_R6_TO_OREGION:
+            class_label = OREGION_CLASS
+        else:
+            class_label = REGION6_CLASS
         human_names = REGION6_HUMAN_NAMES      
     else:
         print("{0} type is Not supporeted".format(args.object_type))
@@ -158,8 +165,10 @@ for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
         sys.exit(0)
     
     #기존 폴더 아래 있는 출력 폴더를 지운다.
-    if os.path.exists(args.output_dir) :
-        shutil.rmtree(args.output_dir) 
+    # r6이고 r6를 or에 포함 시킬 때가 아닐 때만 삭제한다.
+    if not (DEFAULT_OBJ_TYPE == 'r6' and INCULUDE_R6_TO_OREGION == True):
+        if os.path.exists(args.output_dir) :
+            shutil.rmtree(args.output_dir) 
 
     if not os.path.exists(args.output_dir) :
         createFolder(args.output_dir)
