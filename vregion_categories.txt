@@ -12,5 +12,6 @@ vIncheon
 vJeJu
 vJeonBuk
 vJeonNam
+vSeJong
 vSeoul
 vUlSan

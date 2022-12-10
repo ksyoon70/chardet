@@ -39,8 +39,8 @@ BATCH_SIZE = 32
 #epochs
 EPOCHS =  50
 backbone = 'resnet50'
-DEFAULT_LABEL_FILE = "./LPR_Labels1.txt"  #라벨 파일이름
-DEFAULT_OBJ_TYPE = 'or'#'ch' 'hr', 'vr', 'or'
+DEFAULT_LABEL_FILE =  "./LPR_Total_Labels.txt" #"./LPR_Labels1.txt"  #라벨 파일이름
+DEFAULT_OBJ_TYPE = 'hr'#'ch' 'hr', 'vr', 'or'
 OBJECT_DETECTION_API_PATH = 'C://SPB_Data//RealTimeObjectDetection-main'
 #---------------------------------------------
 
@@ -79,13 +79,21 @@ LABEL_FILE_HUMAN_NAMES = fLabels[1].values.tolist()
 CLASS_DIC = dict(zip(LABEL_FILE_CLASS, LABEL_FILE_HUMAN_NAMES))
 
 #클래스를 각각 그룹별로 나눈다.
-CH_CLASS = LABEL_FILE_CLASS[21:111]  #문자열 클래스
-NUM_CLASS = LABEL_FILE_CLASS[11:21]  #숫자 클래스
-REGION_CLASS = LABEL_FILE_CLASS[111:-1] #지역문자 클래스
-VREGION_CLASS = LABEL_FILE_CLASS[111:128] #Vertical 지역문자 클래스
-HREGION_CLASS = LABEL_FILE_CLASS[128:145] #Horizontal 지역문자 클래스
-OREGION_CLASS = LABEL_FILE_CLASS[145:162] #Orange 지역문자 클래스
-REGION6_CLASS = LABEL_FILE_CLASS[162:-1] #6 지역문자 클래스
+# CH_CLASS = LABEL_FILE_CLASS[21:111]  #문자열 클래스
+# NUM_CLASS = LABEL_FILE_CLASS[11:21]  #숫자 클래스
+# REGION_CLASS = LABEL_FILE_CLASS[111:-1] #지역문자 클래스
+# VREGION_CLASS = LABEL_FILE_CLASS[111:128] #Vertical 지역문자 클래스
+# HREGION_CLASS = LABEL_FILE_CLASS[128:145] #Horizontal 지역문자 클래스
+# OREGION_CLASS = LABEL_FILE_CLASS[145:162] #Orange 지역문자 클래스
+# REGION6_CLASS = LABEL_FILE_CLASS[162:-1] #6 지역문자 클래스
+
+CH_CLASS =  LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('Ga'):LABEL_FILE_CLASS.index('Bae') + 1] #문자열 클래스
+NUM_CLASS = LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('n1'):LABEL_FILE_CLASS.index('n0') + 1]  #숫자 클래스
+REGION_CLASS = LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('vSeoul'):LABEL_FILE_CLASS.index('UlSan6') + 1] #지역문자 클래스
+VREGION_CLASS = LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('vSeoul'):LABEL_FILE_CLASS.index('vUlSan') + 1] #Vertical 지역문자 클래스
+HREGION_CLASS = LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('hSeoul'):LABEL_FILE_CLASS.index('hUlSan') + 1] #Horizontal 지역문자 클래스
+OREGION_CLASS = LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('OpSeoul'):LABEL_FILE_CLASS.index('OpUlSan') + 1] #Orange 지역문자 클래스
+REGION6_CLASS = LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('Seoul6'):LABEL_FILE_CLASS.index('UlSan6') + 1] #6 지역문자 클래스
 
 
 class_str = None   #클래스의 이름을 저장한다.
@@ -212,7 +220,7 @@ def colortogray(image):
     return Image.fromarray(hsv_image)
 
 train_datagen = ImageDataGenerator(
-                            rotation_range=30,
+                            rotation_range=15,
                              width_shift_range=0.2,
                              height_shift_range=0.2,
                              shear_range=0.2,

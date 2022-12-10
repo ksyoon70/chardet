@@ -22,7 +22,7 @@ import math
 MIDDLE_PATH_NAME = 'datasets'
 OUTPUT_FOLDER_NAME = 'out' # labelme로 출력할 디렉토리 이름 (현재 디렉토리 아래로 저장된다.)
 DEFAULT_OBJ_TYPE = 'or'
-DEFAULT_LABEL_FILE = "./LPR_Labels1.txt"  #라벨 파일이름
+DEFAULT_LABEL_FILE = "./LPR_Total_Labels.txt" #"./LPR_Labels1.txt"  #라벨 파일이름
 option_move = False # 원 파일을 옮길지 여부
 INCULUDE_R6_TO_OREGION = True   #r6 번호판을 or 에 포함 할지 여부
 #------------------------------
@@ -104,22 +104,37 @@ for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
     CLASS_DIC = dict(zip(LABEL_FILE_CLASS, LABEL_FILE_HUMAN_NAMES))
 
     #클래스를 각각 그룹별로 나눈다.
-    CH_CLASS = LABEL_FILE_CLASS[21:111]  #문자열 클래스
-    NUM_CLASS = LABEL_FILE_CLASS[11:21]  #숫자 클래스
-    REGION_CLASS = LABEL_FILE_CLASS[111:-1] #지역문자 클래스
-    VREGION_CLASS = LABEL_FILE_CLASS[111:128] #Vertical 지역문자 클래스
-    HREGION_CLASS = LABEL_FILE_CLASS[128:145] #Horizontal 지역문자 클래스
-    OREGION_CLASS = LABEL_FILE_CLASS[145:162] #Orange 지역문자 클래스
-    REGION6_CLASS = LABEL_FILE_CLASS[162:-1] #6 지역문자 클래스
+    # CH_CLASS = LABEL_FILE_CLASS[21:111]  #문자열 클래스
+    # NUM_CLASS = LABEL_FILE_CLASS[11:21]  #숫자 클래스
+    # REGION_CLASS = LABEL_FILE_CLASS[111:-1] #지역문자 클래스
+    # VREGION_CLASS = LABEL_FILE_CLASS[111:128] #Vertical 지역문자 클래스
+    # HREGION_CLASS = LABEL_FILE_CLASS[128:145] #Horizontal 지역문자 클래스
+    # OREGION_CLASS = LABEL_FILE_CLASS[145:162] #Orange 지역문자 클래스
+    # REGION6_CLASS = LABEL_FILE_CLASS[162:-1] #6 지역문자 클래스
+    CH_CLASS =  LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('Ga'):LABEL_FILE_CLASS.index('Bae') + 1] #문자열 클래스
+    NUM_CLASS = LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('n1'):LABEL_FILE_CLASS.index('n0') + 1]  #숫자 클래스
+    REGION_CLASS = LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('vSeoul'):LABEL_FILE_CLASS.index('UlSan6') + 1] #지역문자 클래스
+    VREGION_CLASS = LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('vSeoul'):LABEL_FILE_CLASS.index('vUlSan') + 1] #Vertical 지역문자 클래스
+    HREGION_CLASS = LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('hSeoul'):LABEL_FILE_CLASS.index('hUlSan') + 1] #Horizontal 지역문자 클래스
+    OREGION_CLASS = LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('OpSeoul'):LABEL_FILE_CLASS.index('OpUlSan') + 1] #Orange 지역문자 클래스
+    REGION6_CLASS = LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('Seoul6'):LABEL_FILE_CLASS.index('UlSan6') + 1] #6 지역문자 클래스
 
     #사람이 볼수있는 이름으로 나눈다.
-    CH_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[21:111]  #문자열 클래스
-    NUM_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[11:21]  #숫자 클래스
-    REGION_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[111:-1] #지역문자 클래스
-    VREGION_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[111:128] #Vertical 지역문자 클래스
-    HREGION_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[128:145] #Horizontal 지역문자 클래스
-    OREGION_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[145:162] #Orange 지역문자 클래스
-    REGION6_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[162:-1] #6 지역문자 클래스
+    # CH_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[21:111]  #문자열 클래스
+    # NUM_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[11:21]  #숫자 클래스
+    # REGION_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[111:-1] #지역문자 클래스
+    # VREGION_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[111:128] #Vertical 지역문자 클래스
+    # HREGION_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[128:145] #Horizontal 지역문자 클래스
+    # OREGION_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[145:162] #Orange 지역문자 클래스
+    # REGION6_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[162:-1] #6 지역문자 클래스
+    
+    CH_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[LABEL_FILE_CLASS.index('Ga'):LABEL_FILE_CLASS.index('Bae') + 1]  #문자열 클래스
+    NUM_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[LABEL_FILE_CLASS.index('n1'):LABEL_FILE_CLASS.index('n0') + 1]  #숫자 클래스
+    REGION_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[LABEL_FILE_CLASS.index('vSeoul'):LABEL_FILE_CLASS.index('UlSan6') + 1] #지역문자 클래스
+    VREGION_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[LABEL_FILE_CLASS.index('vSeoul'):LABEL_FILE_CLASS.index('vUlSan') + 1] #Vertical 지역문자 클래스
+    HREGION_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[LABEL_FILE_CLASS.index('hSeoul'):LABEL_FILE_CLASS.index('hUlSan') + 1] #Horizontal 지역문자 클래스
+    OREGION_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[LABEL_FILE_CLASS.index('OpSeoul'):LABEL_FILE_CLASS.index('OpUlSan') + 1] #Orange 지역문자 클래스
+    REGION6_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[LABEL_FILE_CLASS.index('Seoul6'):LABEL_FILE_CLASS.index('UlSan6') + 1] #6 지역문자 클래스
 
     train_ratio = args.ratio[0]
     validation_ratio = 1.0 - args.ratio[0]
