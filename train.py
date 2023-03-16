@@ -42,6 +42,7 @@ backbone = 'resnet50'
 DEFAULT_LABEL_FILE =  "./LPR_Total_Labels.txt" #"./LPR_Labels1.txt"  #라벨 파일이름
 DEFAULT_OBJ_TYPE = 'or'#'ch' 'hr', 'vr', 'or'
 OBJECT_DETECTION_API_PATH = 'C://SPB_Data//RealTimeObjectDetection-main'
+TRAINALBELAYER_LEN = 95
 #---------------------------------------------
 
 ROOT_DIR = os.getcwd()
@@ -59,7 +60,7 @@ if not os.path.isdir(logs_dir):
 	os.mkdir(logs_dir)
 
 
-OBJECT_TYPES = ['ch','hr','vr','or','r6']
+OBJECT_TYPES = ['ch','hr','vr','or']
 
 for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
     # Initiate argument parser
@@ -180,7 +181,7 @@ for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
     val_data_count = sum(len(files) for _, _, files in os.walk(validation_dir))
     # # Model description and training
     
-    model = get_Model(len(categories))
+    model = get_Model(len(categories),trainablelayerLen=TRAINALBELAYER_LEN)
     
     
     try:
@@ -224,12 +225,13 @@ for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
         return Image.fromarray(hsv_image)
     
     train_datagen = ImageDataGenerator(
-                                rotation_range=15,
+                                rotation_range=30,
                                  width_shift_range=0.2,
                                  height_shift_range=0.2,
-                                 shear_range=0.2,
+                                 shear_range=0.3,
                                  zoom_range=[0.7,1.0],
-                                 #horizontal_flip=True,
+                                 fill_mode='nearest',
+                                 horizontal_flip=True,
                                  #preprocessing_function = colortogrey,
                                  brightness_range=[0.2,1.0])
     
