@@ -28,7 +28,7 @@ INCULUDE_R6_TO_OREGION = True   #r6 번호판을 or 에 포함 할지 여부
 #------------------------------
 class_str = None   #클래스의 이름을 저장한다.
 
-OBJECT_TYPES = ['ch','hr','vr','or','r6']
+OBJECT_TYPES = ['ch','hr','vr','or','r6','n']
 
 for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
 
@@ -111,7 +111,7 @@ for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
     # HREGION_CLASS = LABEL_FILE_CLASS[128:145] #Horizontal 지역문자 클래스
     # OREGION_CLASS = LABEL_FILE_CLASS[145:162] #Orange 지역문자 클래스
     # REGION6_CLASS = LABEL_FILE_CLASS[162:-1] #6 지역문자 클래스
-    CH_CLASS =  LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('Ga'):LABEL_FILE_CLASS.index('Bae') + 1] #문자열 클래스
+    CH_CLASS =  LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('Ga'):LABEL_FILE_CLASS.index('Cml') + 1] #문자열 클래스
     NUM_CLASS = LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('n1'):LABEL_FILE_CLASS.index('n0') + 1]  #숫자 클래스
     REGION_CLASS = LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('vSeoul'):LABEL_FILE_CLASS.index('UlSan6') + 1] #지역문자 클래스
     VREGION_CLASS = LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('vSeoul'):LABEL_FILE_CLASS.index('vUlSan') + 1] #Vertical 지역문자 클래스
@@ -128,7 +128,7 @@ for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
     # OREGION_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[145:162] #Orange 지역문자 클래스
     # REGION6_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[162:-1] #6 지역문자 클래스
     
-    CH_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[LABEL_FILE_CLASS.index('Ga'):LABEL_FILE_CLASS.index('Bae') + 1]  #문자열 클래스
+    CH_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[LABEL_FILE_CLASS.index('Ga'):LABEL_FILE_CLASS.index('Cml') + 1]  #문자열 클래스
     NUM_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[LABEL_FILE_CLASS.index('n1'):LABEL_FILE_CLASS.index('n0') + 1]  #숫자 클래스
     REGION_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[LABEL_FILE_CLASS.index('vSeoul'):LABEL_FILE_CLASS.index('UlSan6') + 1] #지역문자 클래스
     VREGION_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[LABEL_FILE_CLASS.index('vSeoul'):LABEL_FILE_CLASS.index('vUlSan') + 1] #Vertical 지역문자 클래스
@@ -148,8 +148,8 @@ for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
     elif args.object_type == 'n':       #숫자검사
         class_label = NUM_CLASS
         human_names = NUM_HUMAN_NAMES
-        print("{0} type is Not supporeted yet".format(args.object_type))
-        sys.exit(0)
+        #print("{0} type is Not supporeted yet".format(args.object_type))
+        #sys.exit(0)
     elif args.object_type == 'r':       #지역문자 검사
         class_label = REGION_CLASS
         human_names = REGION_HUMAN_NAMES
