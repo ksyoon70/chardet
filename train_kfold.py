@@ -1,15 +1,11 @@
-#from keras import backend as K
-#from keras.optimizers import Adadelta
-#from keras.callbacks import EarlyStopping, ModelCheckpoint
 import os,sys
 from tkinter.messagebox import NO
 from tensorflow.keras import backend as K
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adadelta
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
 from tensorflow.keras.layers import Conv2D, MaxPooling2D
 from tensorflow.keras.layers import Input, Dense, Activation,Flatten
 from tensorflow.keras.layers import Reshape, Lambda, BatchNormalization
@@ -28,6 +24,13 @@ import cv2
 import shutil
 from PIL import Image
 from pathlib import Path
+from label_tools import *
+import pandas as pd
+import glob
+
+from KSCallBackModel import CustomModelCheckpoint,CustomHistory
+
+from sklearn.model_selection import StratifiedKFold
 
 K.set_learning_phase(0)
 
@@ -35,14 +38,17 @@ K.set_learning_phase(0)
 #이미지 크기 조정 크기
 IMG_SIZE = 224
 #배치 싸이즈
-BATCH_SIZE = 32
+BATCH_SIZE = 8
 #epochs
-EPOCHS =  50
+EPOCHS =  30
+patience = 6
 backbone = 'resnet50'
 DEFAULT_LABEL_FILE =  "./LPR_Total_Labels.txt" #"./LPR_Labels1.txt"  #라벨 파일이름
-DEFAULT_OBJ_TYPE = 'or'#'ch' 'hr', 'vr', 'or'
+#DEFAULT_OBJ_TYPE = 'or'#'ch' 'hr', 'vr', 'or'
+OBJECT_TYPES = ['or']
 OBJECT_DETECTION_API_PATH = 'C://SPB_Data//RealTimeObjectDetection-main'
-TRAINALBELAYER_LEN = 95
+K_FOLD = 5
+FOLD_EPOCHS = 2
 #---------------------------------------------
 
 ROOT_DIR = os.getcwd()
@@ -60,9 +66,10 @@ if not os.path.isdir(logs_dir):
 	os.mkdir(logs_dir)
 
 
-OBJECT_TYPES = ['ch','hr','vr','or']
+
 
 for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
+
     # Initiate argument parser
     parser = argparse.ArgumentParser(
         description="object split and save in jpeg and annotation files")
@@ -92,11 +99,11 @@ for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
     # OREGION_CLASS = LABEL_FILE_CLASS[145:162] #Orange 지역문자 클래스
     # REGION6_CLASS = LABEL_FILE_CLASS[162:-1] #6 지역문자 클래스
     
-    CH_CLASS =  LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('Ga'):LABEL_FILE_CLASS.index('Bae') + 1] #문자열 클래스
+    CH_CLASS =  LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('Ga'):LABEL_FILE_CLASS.index('Cml') + 1] + LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('Gang'):LABEL_FILE_CLASS.index('Heung') + 1] #문자열 클래스
     NUM_CLASS = LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('n1'):LABEL_FILE_CLASS.index('n0') + 1]  #숫자 클래스
     REGION_CLASS = LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('vSeoul'):LABEL_FILE_CLASS.index('UlSan6') + 1] #지역문자 클래스
-    VREGION_CLASS = LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('vSeoul'):LABEL_FILE_CLASS.index('vDiplomacy') + 1] #Vertical 지역문자 클래스
-    HREGION_CLASS = LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('hSeoul'):LABEL_FILE_CLASS.index('hDiplomacy') + 1] #Horizontal 지역문자 클래스
+    VREGION_CLASS = LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('vSeoul'):LABEL_FILE_CLASS.index('vUlSan') + 1] #Vertical 지역문자 클래스
+    HREGION_CLASS = LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('hSeoul'):LABEL_FILE_CLASS.index('hUlSan') + 1] #Horizontal 지역문자 클래스
     OREGION_CLASS = LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('OpSeoul'):LABEL_FILE_CLASS.index('OpUlSan') + 1] #Orange 지역문자 클래스
     REGION6_CLASS = LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('Seoul6'):LABEL_FILE_CLASS.index('UlSan6') + 1] #6 지역문자 클래스
     
@@ -156,10 +163,6 @@ for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
     if not os.path.isdir(train_dir):
         os.mkdir(train_dir)
     
-    validation_dir = os.path.join(base_dir,class_str,'validation')
-    if not os.path.isdir(validation_dir):
-        os.mkdir(validation_dir)
-    
     test_dir = os.path.join(base_dir,class_str,'test')
     if not os.path.isdir(test_dir):
         os.mkdir(test_dir)
@@ -178,21 +181,19 @@ for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
        
     
     train_data_count =  sum(len(files) for _, _, files in os.walk(train_dir))
-    val_data_count = sum(len(files) for _, _, files in os.walk(validation_dir))
     # # Model description and training
     
-    model = get_Model(len(categories),trainablelayerLen=TRAINALBELAYER_LEN)
-    
-    
+    model = get_Model('resnet50',len(categories))
+
     try:
        # model.load_weights('LSTM+BN4--26--0.011.hdf5')
+        
         print("...Previous weight data...")
     except:
         print("...New weight data...")
         pass
     
-    #def get_model_path(model_type, backbone="resnet50"):
-    def get_model_path(model_type, backbone):
+    def get_model_path(model_type, backbone="resnet50"):
         """Generating model path from model_type value for save/load model weights.
         inputs:
             model_type = "rpn", "faster_rcnn"
@@ -225,143 +226,198 @@ for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
         hsv_image = cv2.cvtColor(image,cv2.COLOR_RGB2HSV)
         return Image.fromarray(hsv_image)
     
-    train_datagen = ImageDataGenerator(
-                                rotation_range=30,
-                                 width_shift_range=0.2,
-                                 height_shift_range=0.2,
-                                 shear_range=0.3,
-                                 zoom_range=[0.7,1.0],
-                                 fill_mode='nearest',
-                                 horizontal_flip=True,
-                                 #preprocessing_function = colortogrey,
-                                 brightness_range=[0.2,1.0])
     
-    valid_datagen = ImageDataGenerator()
+    kfold = StratifiedKFold(n_splits=K_FOLD, shuffle=True)
     
+    labels = []
+    image_paths = []
     
-    train_generator = train_datagen.flow_from_directory(train_dir,
-                                                        target_size=(IMG_SIZE,IMG_SIZE),
-                                                        batch_size=BATCH_SIZE,
-                                                        shuffle=True,
-                                                        seed=42,
-                                                        class_mode='categorical',
-                                                        classes = categories)
+    dfilecnt = np.zeros(len(categorie_list))
     
+    for index, categorie in enumerate(categorie_list):
+        for filename in os.listdir(os.path.join(train_dir,categorie)):
+            #labels.append(categorie)
+            #image_paths.append(os.path.join(train_dir,categorie,filename))
+            dfilecnt[index] =dfilecnt[index] + 1
+            
+    for index, value in enumerate(dfilecnt):
+        if value < K_FOLD:
+            print('{}의 파일갯수는{} 입니다'.format(categorie_list[index],value))
+            #1개를 validation을 위하여 더 추가로 만든다.
+            fn = os.listdir(os.path.join(train_dir,categorie_list[index]))
+            if fn:
+                src_size = len(fn)
+                s_idx = 0
+                for i in range(K_FOLD-1):       
+                    filename, ext = os.path.splitext(fn[s_idx])
+                    srcfn = os.path.join(train_dir,categorie_list[index],fn[s_idx])
+                    dstfn = os.path.join(train_dir,categorie_list[index],filename + '_{}'.format(i+1) + ext)
+                    shutil.copy(srcfn,dstfn)
+                    s_idx = (s_idx + 1) % src_size
+            else:
+                print('에러!!! {}의 파일이 없습니다.'.format(categorie_list[index]))
+                
+    for index, categorie in enumerate(categorie_list):
+        for filename in os.listdir(os.path.join(train_dir,categorie)):
+            labels.append(categorie)
+            image_paths.append(os.path.join(train_dir,categorie,filename))
+        
+    df = pd.DataFrame({'image_path':image_paths,'label':labels})
+
     
-    validation_generator = valid_datagen.flow_from_directory(validation_dir,
-                                                        target_size=(IMG_SIZE,IMG_SIZE),
-                                                        batch_size=BATCH_SIZE,
-                                                        shuffle=True,
-                                                        seed=42,
-                                                        class_mode='categorical',
-                                                        classes = categories)
+    fold_no = 0
+    custom_hist = CustomHistory()
+    custom_hist.init(fold_no)
     
     model.summary()
     
     model.compile( loss='categorical_crossentropy', optimizer=Adam(lr=0.001),metrics=["acc"])
     
-    earlystopping = tf.keras.callbacks.EarlyStopping(monitor='val_acc', patience=10)
+    earlystopping = tf.keras.callbacks.EarlyStopping(monitor='val_acc', patience=patience)
+    
+    
+    
     # Load weights
     log_path = get_log_path(class_str, backbone)
     model_sub_path_str = get_model_path(class_str)
     
+    # weight file format을 지정한다.
+    weight_filename =  model_sub_path_str + "epoch_{epoch:03d}_val_acc_{val_acc:.4f}.h5"
+    checkpoint_callback = CustomModelCheckpoint(filepath=weight_filename , monitor="val_acc",save_best_only=True, mode='max', patience=patience)
     
-    weight_filename = model_sub_path_str + "epoch_{epoch:03d}_val_acc_{val_acc:.3f}.h5"
-    checkpoint_callback = ModelCheckpoint(filepath=weight_filename , monitor="val_acc", save_freq='epoch',save_best_only=True, verbose=1, mode='auto' ,save_weights_only=True)
-    
-    tensorboard_callback = TensorBoard(log_dir=log_path)
-    
-    class CustomHistory(tf.keras.callbacks.Callback):
-        def init(self, logs={}):
-            self.train_loss = []
-            self.val_loss = []
-            self.train_acc = []
-            self.val_acc = []
+    is_earlystopping = False
+
+    for _ in  range(int(EPOCHS/(K_FOLD*FOLD_EPOCHS))):
+        for fold, (train_idx, valid_idx) in enumerate(kfold.split(df, df['label'])):
+
+                    
+
+            train_df = df.iloc[train_idx]
+            valid_df = df.iloc[valid_idx]
             
-        def on_epoch_end(self, epoch, logs={}):
-            if len(self.val_acc):
-                if logs.get('val_acc') > max(self.val_acc) :
-                    global weight_filename
-                    weight_filename = model_sub_path_str + "epoch_{0:03d}_val_acc_{1:.3f}.h5".format(epoch+1,logs.get('val_acc'))
-            self.train_loss.append(logs.get('loss'))
-            self.val_loss.append(logs.get('val_loss'))
-            self.train_acc.append(logs.get('acc'))
-            self.val_acc.append(logs.get('val_acc'))
-            #print('\nepoch={}, 현재 최대 val_acc={}'.format(epoch,max(self.val_acc)))
-    
-    
-    custom_hist = CustomHistory()
-    custom_hist.init()
-    
-    
-    class_weights = class_weight.compute_class_weight(
-                   'balanced',
-                    np.unique(train_generator.classes), 
-                    train_generator.classes) 
-    
-    class_weights = {i : class_weights[i] for i in range(len(class_weights))}
-    
-    
-    #calculate steps_per_epoch and validation_steps
-    steps_per_epoch = int(train_data_count/BATCH_SIZE)
-    validation_steps = int(val_data_count/BATCH_SIZE)
-    history = model.fit(train_generator,
-                                  steps_per_epoch=steps_per_epoch,
-                                  epochs=EPOCHS,
-                                  validation_data=validation_generator,
-                                  validation_steps=validation_steps,
-                                  #class_weight=class_weights,
-                                  callbacks=[checkpoint_callback,tensorboard_callback,earlystopping,custom_hist])
-    
-    
-    acc = history.history['acc']
-    val_acc = history.history['val_acc']
-    loss = history.history['loss']
-    val_loss = history.history['val_loss']
-    
-    epochs = range(1, len(acc) + 1)
-    
-    print('last weight filename is {}'.format(weight_filename))
+            train_datagen = ImageDataGenerator(
+                                        rotation_range=45,
+                                         width_shift_range=0.2,
+                                         height_shift_range=0.2,
+                                         shear_range=0.2,
+                                         zoom_range=[0.7,1.0],
+                                         #horizontal_flip=True,
+                                         #preprocessing_function = colortogrey,
+                                         brightness_range=[0.2,1.0])
+            
+            valid_datagen = ImageDataGenerator()
+            
+            train_generator = train_datagen.flow_from_dataframe(dataframe=train_df,
+                                                  x_col='image_path',
+                                                  y_col='label',
+                                                  target_size=(IMG_SIZE,IMG_SIZE),
+                                                  class_mode='categorical'
+                                                  )
+            
+            
+            
+            validation_generator = valid_datagen.flow_from_dataframe(dataframe=valid_df,
+                                                  x_col='image_path',
+                                                  y_col='label',
+                                                  target_size=(IMG_SIZE,IMG_SIZE),
+                                                  class_mode='categorical')
+        
+                   
+            tensorboard_callback = TensorBoard(log_dir=log_path)
+
+            class_weights = class_weight.compute_class_weight(
+                           'balanced',
+                            np.unique(train_generator.classes), 
+                            train_generator.classes) 
+            
+            class_weights = {i : class_weights[i] for i in range(len(class_weights))}
+            
+            
+            #calculate steps_per_epoch and validation_steps
+            steps_per_epoch = int(train_generator.n/train_generator.batch_size)
+            validation_steps = int(validation_generator.n/validation_generator.batch_size)
+            
+            #weight 파일이 있으면 읽어서 갱신한다.
+            
+            last_weight_fn = checkpoint_callback.get_weight_filename()
+            if last_weight_fn:
+                if os.path.isfile(last_weight_fn):
+                    print("가장 최근 weight 파일 읽기: {}".format(last_weight_fn))
+                    model.load_weights(last_weight_fn)
+            print('K-Fold:{}'.format(fold+1))   
+            history = model.fit(train_generator,
+                                          steps_per_epoch=steps_per_epoch,
+                                          epochs=FOLD_EPOCHS,
+                                          validation_data=validation_generator,
+                                          validation_steps=validation_steps,
+                                          #class_weight=class_weights,
+                                          callbacks=[checkpoint_callback,tensorboard_callback,earlystopping,custom_hist])
+            acc = custom_hist.train_acc
+            val_acc = custom_hist.val_acc
+            loss = custom_hist.train_loss
+            val_loss = custom_hist.val_loss
+            
+            epochs = range(1, len(custom_hist.train_acc) + 1)
+            
+            # Increase fold number
+            fold_no += 1
+            
+            #earlystopping 조건이면 루프를 빠져 나간다.
+            is_earlystopping  = checkpoint_callback.earlystopping()
+            if is_earlystopping:
+                break
+            
+        if is_earlystopping:
+            break
     
     model_save_filename = "{}_{}_{}_model_epoch_{}_val_acc_{:.4f}.h5".format(class_str,backbone,datetime.now().strftime("%Y%m%d-%H%M%S"),len(acc),val_acc[-1])
     model.save(model_save_filename,)
     
-    
-    
+
     #기존 폴더 아래 있는 출력 폴더를 지운다.
-    model_path = os.path.join(OBJECT_DETECTION_API_PATH,model_dir)
+    model_path = os.path.join(OBJECT_DETECTION_API_PATH, model_dir)
+    
+    if not os.path.isdir(model_path) :
+        createFolder(model_path)
+        
     model_list = os.listdir(model_path)
     if( len(model_list)):
         for fn in model_list:
             os.remove(os.path.join(model_path,fn))
             
+    
+            
     #결과 파일을 복사한다.
     #weight file 복사
-    src_fn = weight_filename
+    src_fn = checkpoint_callback.get_weight_filename()
     dst_fn = os.path.join(model_path,os.path.basename(src_fn))
     shutil.copy(src_fn,dst_fn)
+    print("가장 좋은 weight 파일 복사: {} -> {}".format(src_fn, dst_fn))
     # 카테고리 파일 복사
     src_fn = categorie_filename
     dst_fn = os.path.join(model_path,src_fn)
     shutil.copy(src_fn,dst_fn)
+    print("카테고리 파일 복사: {} -> {}".format(src_fn, dst_fn))
     # 모델 파일 복사
     src_fn = model_save_filename
     dst_fn = os.path.join(model_path,src_fn)
     shutil.copy(src_fn,dst_fn)
+    print("모델 파일 복사: {} -> {}".format(src_fn, dst_fn))
     
     
     plt.plot(epochs, acc, 'bo', label ='Training acc')
     plt.plot(epochs, val_acc, 'b', label ='Validation acc')
     
-    plt.title('Training and validation accuracy')
+    plt.title('K-fold: {} Training and validation accuracy'.format(fold_no))
     plt.legend()
     plt.figure()
     
     plt.plot(epochs, loss, 'bo', label ='Training loss')
     plt.plot(epochs, val_loss, 'b', label ='Validation loss')
     
-    plt.title('Training and validation loss')
+    plt.title('K-fold: {} Training and validation loss'.format(fold_no))
     plt.legend()
     plt.figure()
     
     plt.show()
+           

@@ -39,14 +39,14 @@ config = tf.config.experimental.set_memory_growth(physical_devices[0], True)
 #----------------------------
 DEFAULT_LABEL_FILE = "./LPR_Labels1.txt"  #라벨 파일이름
 IMG_SIZE = 224
-THRESH_HOLD = 0.8
-show_images = False
+THRESH_HOLD = 0.4
+show_images = True
 file_move = False
 TEST_DIR_NAME = 'test'
 RESULT_DIR_NAME = 'result'
-DEFAULT_OBJ_TYPE = 'ch'
-MODEL_FILE_NAME ='character_resnet50_20220903-155648_model_epoch_27_val_acc_0.9005.h5'
-WEIGHT_FILE_NAME = 'character_resnet50_20220903-154856_weights_epoch_017_val_acc_0.927.h5'
+DEFAULT_OBJ_TYPE = 'or'
+MODEL_FILE_NAME ='oregion_resnet50_20240429-161754_model_epoch_22_val_acc_0.9701.h5'
+WEIGHT_FILE_NAME = 'oregion_resnet50_20240429-161104_weights_epoch_016_val_acc_0.9810.h5'
 #----------------------------
 
 categories = []
@@ -114,7 +114,7 @@ if not os.path.isdir(base_dir):
     os.mkdir(base_dir)
 
 #시험 폴더 위치 지정
-src_dir = os.path.join(base_dir,TEST_DIR_NAME)
+src_dir = os.path.join(base_dir,class_str,TEST_DIR_NAME)
 if not os.path.isdir(src_dir):
     os.mkdir(src_dir)
     
