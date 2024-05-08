@@ -3,6 +3,7 @@ vChungBuk
 vChungNam
 vDaeGu
 vDaeJeon
+vDiplomacy
 vGangwon
 vGwangJu
 vGyeongBuk

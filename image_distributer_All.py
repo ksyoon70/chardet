@@ -28,7 +28,8 @@ INCULUDE_R6_TO_OREGION = True   #r6 번호판을 or 에 포함 할지 여부
 #------------------------------
 class_str = None   #클래스의 이름을 저장한다.
 
-OBJECT_TYPES = ['ch','hr','vr','or','r6','n']
+#OBJECT_TYPES = ['ch','hr','vr','or','r6','n']
+OBJECT_TYPES = ['ch','hr','vr','or','r6']
 
 for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
 
@@ -93,7 +94,7 @@ for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
     # training / validateion  비율을 설정한다.
     parser.add_argument("-r",
                         "--ratio", type=float,
-                        help="train validation ratio ex[0.7,0.3] ",default=[0.7,0.3], required=False)
+                        help="train validation ratio ex[0.7,0.3] ",default=[1.0,0.0], required=False)
 
 
     args = parser.parse_args()
@@ -263,6 +264,9 @@ for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
                         shutil.move(src,dst)
                     else :
                         shutil.copy(src,dst)
+            else:
+                print('validation 파일 갯수 {} 다음으로...'.format(len(vfiles)))
+                continue
         else :
             print('처리할 파일이 없습니다')
             

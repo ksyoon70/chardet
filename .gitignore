@@ -131,5 +131,6 @@ trained/
 
 
 character_categories.txt
-
 oregion_categories.txt
+vregion_categories.txt
+hregion_categories.txt
