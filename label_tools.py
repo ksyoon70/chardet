@@ -14,8 +14,8 @@ from PIL import Image
 from shutil import copyfile
 import re
 import numpy as np
-
-
+import cv2
+from pathlib import Path
 # NpEncoder class ================================================================
 class NpEncoder(json.JSONEncoder):
    def default(self, obj):
@@ -324,7 +324,15 @@ def createFolder(directory):
         print ('Error: Creating directory. ' +  directory)
     
             
-    
+def imread(path, flags=cv2.IMREAD_COLOR):
+    return cv2.imdecode(np.fromfile(path, np.uint8), flags)
+
+def imwrite(path, im):
+    try:
+        cv2.imencode(Path(path).suffix, im)[1].tofile(path)
+        return True
+    except Exception:
+        return False    
             
             
             

@@ -9,7 +9,7 @@ import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard
 
 class CustomModelCheckpoint(ModelCheckpoint):
-    def __init__(self, filepath, monitor='val_loss', save_best_only=True, mode='max',patience=10, **kwargs):
+    def __init__(self, model, filepath, monitor='val_loss', save_best_only=True, mode='max',patience=10, **kwargs):
         super().__init__(filepath, monitor=monitor, save_best_only=save_best_only, **kwargs)
         self.filepath = filepath
         self.monitor = monitor
@@ -20,6 +20,8 @@ class CustomModelCheckpoint(ModelCheckpoint):
         self.weight_filename = None
         self.patience = patience
         self.update = 0
+        self.weights =[]
+        self.model = model
 
     def on_epoch_end(self, epoch, logs=None):
         # 원하는 동작을 구현 (예: 특정 조건에서만 저장)
@@ -33,6 +35,7 @@ class CustomModelCheckpoint(ModelCheckpoint):
             self.best_value = current_value            
             super().on_epoch_end(self.epoch, logs)
             self.weight_filename = self.filepath.format(epoch=self.epoch + 1, **logs)
+            self.weights = self.model.get_weights()
             if self.update < self.patience:
                 self.update = 0
         else:
@@ -42,6 +45,8 @@ class CustomModelCheckpoint(ModelCheckpoint):
     #마지막 저장한 weight file name을 리턴한다.        
     def get_weight_filename(self):
         return self.weight_filename
+    def get_weights(self):
+        return self.weights
     def earlystopping(self):
         return bool(True if self.update >= self.patience else False )
     

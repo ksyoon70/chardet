@@ -16,20 +16,34 @@ import pandas as pd
 from label_tools import *
 import random
 import math
-
+from pathlib import Path
+from label_tools import *
+from train_image_augment import process_and_augment
+from image_leveling import image_leveling
 #------------------------------
 # 수정할 내용
 MIDDLE_PATH_NAME = 'datasets'
-OUTPUT_FOLDER_NAME = 'out' # labelme로 출력할 디렉토리 이름 (현재 디렉토리 아래로 저장된다.)
-DEFAULT_OBJ_TYPE = 'or'
+#OUTPUT_FOLDER_NAME = 'out' # labelme로 출력할 디렉토리 이름 (현재 디렉토리 아래로 저장된다.)
 DEFAULT_LABEL_FILE = "./LPR_Total_Labels.txt" #"./LPR_Labels1.txt"  #라벨 파일이름
 option_move = False # 원 파일을 옮길지 여부
 INCULUDE_R6_TO_OREGION = True   #r6 번호판을 or 에 포함 할지 여부
+OBJECT_TYPES =  ['hr','vr','or'] #['ch','hr','vr','or','r6'] #['ch','hr','vr','or','r6']
+DEFAULT_SPLIT_RATIO = [0.7,0.3]
+
+src_image_path = 'E:\SPB_Data\chardet\datasets' #os.path.join(ROOT_DIR,MIDDLE_PATH_NAME,IMAGE_FOLDER_NAME)
+dst_image_path = 'E:\SPB_Data\chardet\datasets\out1' #os.path.join(ROOT_DIR,MIDDLE_PATH_NAME,OUTPUT_FOLDER_NAME)
+
+USE_DATA_LEVEL = False
+
 #------------------------------
 class_str = None   #클래스의 이름을 저장한다.
 
-#OBJECT_TYPES = ['ch','hr','vr','or','r6','n']
-OBJECT_TYPES = ['ch','hr','vr','or','r6']
+src_image_path = os.path.normpath(src_image_path)
+src_image_path = Path(src_image_path)
+
+dst_image_path = os.path.normpath(dst_image_path)
+dst_image_path = Path(dst_image_path)
+
 
 for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
 
@@ -66,9 +80,10 @@ for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
     OUTPUT_FOLDER_NAME = class_str
 
     ROOT_DIR = os.path.dirname(__file__)
-    DEFAULT_IMAGES_PATH = os.path.join(ROOT_DIR,MIDDLE_PATH_NAME,IMAGE_FOLDER_NAME)
-    DEFAULT_OUPUT_PATH = os.path.join(ROOT_DIR,MIDDLE_PATH_NAME,OUTPUT_FOLDER_NAME)
 
+    DEFAULT_IMAGES_PATH =  os.path.join(src_image_path,IMAGE_FOLDER_NAME)
+
+    DEFAULT_OUPUT_PATH = os.path.join(dst_image_path,OUTPUT_FOLDER_NAME)
 
     # Initiate argument parser
     parser = argparse.ArgumentParser(
@@ -94,7 +109,7 @@ for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
     # training / validateion  비율을 설정한다.
     parser.add_argument("-r",
                         "--ratio", type=float,
-                        help="train validation ratio ex[0.7,0.3] ",default=[1.0,0.0], required=False)
+                        help="train validation ratio ex[0.7,0.3] ",default=DEFAULT_SPLIT_RATIO, required=False)
 
 
     args = parser.parse_args()
@@ -105,13 +120,6 @@ for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
     CLASS_DIC = dict(zip(LABEL_FILE_CLASS, LABEL_FILE_HUMAN_NAMES))
 
     #클래스를 각각 그룹별로 나눈다.
-    # CH_CLASS = LABEL_FILE_CLASS[21:111]  #문자열 클래스
-    # NUM_CLASS = LABEL_FILE_CLASS[11:21]  #숫자 클래스
-    # REGION_CLASS = LABEL_FILE_CLASS[111:-1] #지역문자 클래스
-    # VREGION_CLASS = LABEL_FILE_CLASS[111:128] #Vertical 지역문자 클래스
-    # HREGION_CLASS = LABEL_FILE_CLASS[128:145] #Horizontal 지역문자 클래스
-    # OREGION_CLASS = LABEL_FILE_CLASS[145:162] #Orange 지역문자 클래스
-    # REGION6_CLASS = LABEL_FILE_CLASS[162:-1] #6 지역문자 클래스
     CH_CLASS =  LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('Ga'):LABEL_FILE_CLASS.index('Cml') + 1] #문자열 클래스
     NUM_CLASS = LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('n1'):LABEL_FILE_CLASS.index('n0') + 1]  #숫자 클래스
     REGION_CLASS = LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('vSeoul'):LABEL_FILE_CLASS.index('UlSan6') + 1] #지역문자 클래스
@@ -120,15 +128,7 @@ for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
     OREGION_CLASS = LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('OpSeoul'):LABEL_FILE_CLASS.index('OpUlSan') + 1] #Orange 지역문자 클래스
     REGION6_CLASS = LABEL_FILE_CLASS[LABEL_FILE_CLASS.index('Seoul6'):LABEL_FILE_CLASS.index('UlSan6') + 1] #6 지역문자 클래스
 
-    #사람이 볼수있는 이름으로 나눈다.
-    # CH_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[21:111]  #문자열 클래스
-    # NUM_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[11:21]  #숫자 클래스
-    # REGION_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[111:-1] #지역문자 클래스
-    # VREGION_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[111:128] #Vertical 지역문자 클래스
-    # HREGION_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[128:145] #Horizontal 지역문자 클래스
-    # OREGION_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[145:162] #Orange 지역문자 클래스
-    # REGION6_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[162:-1] #6 지역문자 클래스
-    
+    #사람이 볼수있는 이름으로 나눈다.    
     CH_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[LABEL_FILE_CLASS.index('Ga'):LABEL_FILE_CLASS.index('Cml') + 1]  #문자열 클래스
     NUM_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[LABEL_FILE_CLASS.index('n1'):LABEL_FILE_CLASS.index('n0') + 1]  #숫자 클래스
     REGION_HUMAN_NAMES = LABEL_FILE_HUMAN_NAMES[LABEL_FILE_CLASS.index('vSeoul'):LABEL_FILE_CLASS.index('UlSan6') + 1] #지역문자 클래스
@@ -212,8 +212,11 @@ for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
 
     if os.path.exists(args.image_dir):
         image_ext = ['jpg','JPG','png','PNG']
-        files = [fn for fn in os.listdir(src_dir)
-                    if any(fn.endswith(ext) for ext in image_ext)]
+        #files = [fn for fn in os.listdir(src_dir)
+        #            if any(fn.endswith(ext) for ext in image_ext)]
+        files = [os.path.join(path,fn) for path, dirs, fns in os.walk(src_dir)
+                    for fn in fns
+                        if any(fn.endswith(ext) for ext in image_ext)]
         sfiles = []  #source file list
         for file in files:
             label = file.split('_')[-1]
@@ -243,8 +246,8 @@ for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
                     if not os.path.exists(en_label_dir):
                         createFolder(en_label_dir)
                     #파일을 레이블 디렉토리로 복사한다.
-                    src = os.path.join(src_dir,tfile)
-                    dst = os.path.join(dst_dir,en_label_dir,tfile)
+                    src = tfile
+                    dst = os.path.join(en_label_dir,os.path.basename(tfile))
                     if option_move :
                         shutil.move(src,dst)
                     else :
@@ -258,8 +261,8 @@ for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
                     if not os.path.exists(en_label_dir):
                         createFolder(en_label_dir)
                     #파일을 레이블 디렉토리로 복사한다.
-                    src = os.path.join(src_dir,vfile)
-                    dst = os.path.join(dst_dir,en_label_dir,vfile)
+                    src = vfile
+                    dst = os.path.join(en_label_dir,os.path.basename(vfile))
                     if option_move :
                         shutil.move(src,dst)
                     else :
@@ -317,8 +320,12 @@ for DEFAULT_OBJ_TYPE in OBJECT_TYPES :
                 if not os.path.exists(dst_directory) :
                     createFolder(dst_directory)
                 shutil.copy(src,dst)    
-            
+        if USE_DATA_LEVEL:
+            basecount = image_leveling(os.path.join(dst_dir,'train'))
+        else:
+            basecount = None
+        process_and_augment(os.path.join(dst_dir,'train'), basecount)   
 
-        print('처리완료')      
+        print('{0} 처리완료'.format(args.object_type))      
     else :
         print("Error! no json directory:",args.json_dir)       

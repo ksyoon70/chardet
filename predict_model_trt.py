@@ -6,19 +6,45 @@ Created on Sun Jul 31 14:42:45 2022
 """
 import numpy as np
 import os, shutil, sys
-import tensorflow as tf
 import matplotlib.pyplot as plt
+try:
+    import tensorrt as trt
+except ImportError as e:
+    print("TensorRT가 설치되어 있지 않습니다:", e)
+else:
+    try:
+        # Python 3.8 이상에서는 importlib.metadata 사용
+        from importlib.metadata import version, PackageNotFoundError
+    except ImportError:
+        # Python 3.7 이하에서는 별도 설치된 importlib_metadata 사용
+        from importlib_metadata import version, PackageNotFoundError
+
+    try:
+        trt_version = version("tensorrt")
+    except PackageNotFoundError:
+        trt_version = "알 수 없음"
+    print("TensorRT version:", trt_version)
+
+try:
+    import pycuda
+except ImportError as e:
+    print("PyCUDA가 설치되어 있지 않습니다:", e)
+else:
+    try:
+        from importlib.metadata import version, PackageNotFoundError
+    except ImportError:
+        from importlib_metadata import version, PackageNotFoundError
+
+    try:
+        pycuda_version = version("pycuda")
+    except PackageNotFoundError:
+        pycuda_version = "알 수 없음"
+    print("PyCUDA version:", pycuda_version)
+import pycuda.autoinit  # 자동으로 CUDA 드라이버 초기화
+import pycuda.driver as cuda
 # 한글 폰트 사용을 위해서 세팅
 from matplotlib import font_manager, rc
-
-from tensorflow.keras.applications import VGG16
-from tensorflow.keras import layers
-from tensorflow.keras import models
-from tensorflow.keras import optimizers
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.preprocessing import image
-from tensorflow.keras.applications.vgg16 import preprocess_input, decode_predictions
-from keras.models import load_model
 import natsort
 import time
 import pandas as pd
@@ -27,7 +53,6 @@ import argparse
 from pathlib import Path
 from label_tools import *
 from tqdm import tqdm
-import tensorflow_addons as tfa
 
 font_path = "C:/Windows/Fonts/NGULIM.TTF"
 font = font_manager.FontProperties(fname=font_path).get_name()
@@ -66,8 +91,10 @@ false_result_dir_base = Path(false_result_dir_base)
 DEFAULT_OBJ_TYPE = 'or'
 
 # 이미지 aument + 가변 lr + train_datagen 옵션 조정 + efficientNetB4 + 2048
-MODEL_FILE_NAME ='oregion_resnet50_20240703-065353_finetune-model_126_epoch_28_val_acc_0.9766.h5'
-WEIGHT_FILE_NAME = 'oregion_resnet50_20240703-064659_finetune_126_weights_epoch_018_val_acc_0.977.h5'
+TRT_MODEL_PATH = r'C:\Users\headway\Documents\Visual Studio 2022\Projects\TRTInfer\x64\Release\models\or_model\engine.trt'
+TRT_MODEL_PATH = os.path.normpath(TRT_MODEL_PATH)
+TRT_MODEL_PATH = Path(TRT_MODEL_PATH)
+
 #----------------------------
 
 categories = []
@@ -186,12 +213,33 @@ for categorie in categories:
     dst_dirs.append(dst_dir)
     fdst_dirs.append(fdst_dir)
     
-#read model
-custom_objects = {"Addons>F1Score": tfa.metrics.F1Score}
-model = load_model(MODEL_FILE_NAME, custom_objects=custom_objects)
-#read weight value from trained dir
-weight_path = os.path.join(trained_dir,WEIGHT_FILE_NAME)
-model.load_weights(weight_path)
+
+# TensorRT 로거 설정 (출력 메시지 수준 조정 가능)
+TRT_LOGGER = trt.Logger(trt.Logger.INFO)
+
+def load_engine(engine_file_path):
+    """TensorRT 엔진 파일을 읽어 엔진 객체를 반환하는 함수"""
+    with open(engine_file_path, "rb") as f:
+        engine_data = f.read()
+    runtime = trt.Runtime(TRT_LOGGER)
+    engine = runtime.deserialize_cuda_engine(engine_data)
+    if engine is None:
+        raise RuntimeError(f"Failed to load TensorRT engine from {engine_file_path}")
+    return engine
+
+try:
+    engine = load_engine(TRT_MODEL_PATH)
+    context = engine.create_execution_context()
+except Exception as e:
+    print("엔진 로딩 또는 실행 컨텍스트 생성 중 오류 발생:", e)
+
+
+input_binding_index = engine.get_binding_index("efficientnetb4_input")
+output_binding_index = engine.get_binding_index("dense_65")
+
+# 바인딩된 텐서의 shape 얻기 (예: (1, 3, 224, 224) 등)
+input_shape = engine.get_binding_shape(input_binding_index)
+output_shape = engine.get_binding_shape(output_binding_index)
 
 
 image_ext = ['jpg','JPG','png','PNG']
@@ -222,9 +270,51 @@ if len(os.listdir(src_dir)):
             img_tensor = image.img_to_array(img)
             img_tensor = np.expand_dims(img_tensor,axis=0)
             #if show_images :
+            img_data_transpose = np.transpose(img_tensor, (0, 3, 1, 2)).astype(np.float32)
+            img_data_transpose = np.ascontiguousarray(img_data_transpose)  # 연속 메모리 배열로 변환
             img_data = img_tensor/255.
-            
-            preds = model.predict(img_tensor)
+            # NHWC -> NCHW로 변환
+            # (1, 224, 224, 3) -> (1, 3, 224, 224)
+
+            # -----------------------------------------------------------
+            # 입력 데이터 준비 (여기서는 더미 데이터를 사용합니다)
+            # 실제 사용 시 전처리 과정을 통해 알맞은 데이터를 넣어주세요.
+            # -----------------------------------------------------------
+            h_input = img_data_transpose
+
+            h_output = np.empty(output_shape, dtype=np.float32)
+
+            # -----------------------------------------------------------
+            # GPU 메모리 할당 (입력/출력)
+            # -----------------------------------------------------------
+            d_input = cuda.mem_alloc(h_input.nbytes)
+            d_output = cuda.mem_alloc(h_output.nbytes)
+
+            # 엔진 바인딩 순서에 맞게 device 메모리 포인터를 리스트로 구성
+            bindings = [int(d_input), int(d_output)]
+
+            # -----------------------------------------------------------
+            # 입력 데이터를 host -> device로 복사
+            # -----------------------------------------------------------
+            cuda.memcpy_htod(d_input, h_input)
+
+            # -----------------------------------------------------------
+            # 추론 실행 (동기 방식)
+            # -----------------------------------------------------------
+            # execute_v2는 bindings 리스트를 받아서 추론을 실행합니다.
+            context.execute_v2(bindings=bindings)
+
+            # -----------------------------------------------------------
+            # 결과 데이터를 device -> host로 복사
+            # -----------------------------------------------------------
+            cuda.memcpy_dtoh(h_output, d_output)
+
+            # 추론 결과 출력
+            #print("Inference output:")
+            #print(h_output)
+
+            preds = h_output
+
             
             index = np.argmax(preds[0],0)
             

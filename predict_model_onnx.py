@@ -8,6 +8,7 @@ import numpy as np
 import os, shutil, sys
 import tensorflow as tf
 import matplotlib.pyplot as plt
+import onnxruntime as ort
 # 한글 폰트 사용을 위해서 세팅
 from matplotlib import font_manager, rc
 
@@ -45,7 +46,7 @@ config = tf.config.experimental.set_memory_growth(physical_devices[0], True)
 DEFAULT_LABEL_FILE = "./LPR_Total_Labels.txt"  #라벨 파일이름
 IMG_SIZE = 224
 THRESH_HOLD = 0.2
-show_images = True
+show_images = False
 file_move = False
 #테스트 이미지가 있는 디렉토리
 src_dir = r'F:\BMT_SPLIT\BMT_CHARS\or_images'
@@ -66,8 +67,10 @@ false_result_dir_base = Path(false_result_dir_base)
 DEFAULT_OBJ_TYPE = 'or'
 
 # 이미지 aument + 가변 lr + train_datagen 옵션 조정 + efficientNetB4 + 2048
-MODEL_FILE_NAME ='oregion_resnet50_20240703-065353_finetune-model_126_epoch_28_val_acc_0.9766.h5'
-WEIGHT_FILE_NAME = 'oregion_resnet50_20240703-064659_finetune_126_weights_epoch_018_val_acc_0.977.h5'
+ONNX_MODEL_PATH = r'C:\Users\headway\Documents\Visual Studio 2022\Projects\TRTInfer\x64\Release\models\or_model\model.onnx'
+ONNX_MODEL_PATH = os.path.normpath(ONNX_MODEL_PATH)
+ONNX_MODEL_PATH = Path(ONNX_MODEL_PATH)
+
 #----------------------------
 
 categories = []
@@ -186,13 +189,18 @@ for categorie in categories:
     dst_dirs.append(dst_dir)
     fdst_dirs.append(fdst_dir)
     
-#read model
-custom_objects = {"Addons>F1Score": tfa.metrics.F1Score}
-model = load_model(MODEL_FILE_NAME, custom_objects=custom_objects)
-#read weight value from trained dir
-weight_path = os.path.join(trained_dir,WEIGHT_FILE_NAME)
-model.load_weights(weight_path)
 
+# GPU 사용 시: 
+session = ort.InferenceSession(ONNX_MODEL_PATH, providers=['CUDAExecutionProvider'])
+
+# 2. 입력 텐서 정보 확인
+input_name = session.get_inputs()[0].name   # 첫 번째 입력 노드의 이름
+input_shape = session.get_inputs()[0].shape # 입력 텐서의 Shape
+input_type = session.get_inputs()[0].type   # 입력 텐서의 자료형
+
+print("Input Name  :", input_name)
+print("Input Shape :", input_shape)
+print("Input Type  :", input_type)
 
 image_ext = ['jpg','JPG','png','PNG']
 files = [fn for fn in os.listdir(src_dir)
@@ -222,20 +230,24 @@ if len(os.listdir(src_dir)):
             img_tensor = image.img_to_array(img)
             img_tensor = np.expand_dims(img_tensor,axis=0)
             #if show_images :
+            img_data_transpose = np.transpose(img_tensor, (0, 3, 1, 2))
             img_data = img_tensor/255.
+            # NHWC -> NCHW로 변환
+            # (1, 224, 224, 3) -> (1, 3, 224, 224)
             
-            preds = model.predict(img_tensor)
             
-            index = np.argmax(preds[0],0)
+            preds = session.run(None, {input_name: img_data_transpose}) # 4. 추론 실행
+            
+            index = np.argmax(preds[0][0],0)
             
             src = os.path.join(src_dir,file)
            
             gtrue_label = file.split('_')[-1]
             gtrue_label = gtrue_label[0:-4]
             
-            if preds[0][index] > THRESH_HOLD :
+            if preds[0][0][index] > THRESH_HOLD :
                 predic_label = CLASS_DIC[categories[index]]
-                tilestr = 'predict:{} GT:{}'.format(CLASS_DIC[categories[index]],gtrue_label) + '' + '  probability: {:.2f}'.format(preds[0][index]*100 )  + ' %'
+                tilestr = 'predict:{} GT:{}'.format(CLASS_DIC[categories[index]],gtrue_label) + '' + '  probability: {:.2f}'.format(preds[0][0][index]*100 )  + ' %'
                 dst = os.path.join(dst_dirs[index],file)
                 recog_count += 1
                 if(gtrue_label == predic_label) :
@@ -246,7 +258,7 @@ if len(os.listdir(src_dir)):
                     dst = os.path.join(fdst_dirs[index],file)
                     false_recog_count += 1
             else:
-                tilestr = 'Not sure but:{}GT:{}'.format(CLASS_DIC[categories[index]],gtrue_label) + '' + '  probability: {:.2f}'.format(preds[0][index]*100)  + ' %'
+                tilestr = 'Not sure but:{}GT:{}'.format(CLASS_DIC[categories[index]],gtrue_label) + '' + '  probability: {:.2f}'.format(preds[0][0][index]*100)  + ' %'
                 dst = os.path.join(dst_dirs[cat_len -1 ],file)
                 fail_count += 1
             #결과 디렉토리에 파일 저장
@@ -271,7 +283,6 @@ print('인식한것중 정인식: {:}/{}'.format(true_recog_count,recog_count) +
 print('인식한것중 오인식: {:}/{}'.format(false_recog_count,recog_count) +'  ({:.2f})'.format(false_recog_count*100/recog_count) + ' %')
 print('인식실패: {}/{}'.format(fail_count,total_test_files) +'  ({:.2f})'.format(fail_count*100/total_test_files) + ' %')
 print('전체샘플중 정인식률: {}/{}'.format(true_recog_count,total_test_files) +'  ({:.2f})'.format(true_recog_count*100/total_test_files) + ' %')    
-        
         
 
 

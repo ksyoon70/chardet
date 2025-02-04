@@ -38,8 +38,10 @@ config = tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
 #----------------------------
 DEFAULT_OBJ_TYPE = 'ch'
-MODEL_FILE_NAME ='character_resnet50_20230120-031916_model_epoch_44_val_acc_0.9754.h5'
-WEIGHT_FILE_NAME = 'character_resnet50_20230119-234527_weights_epoch_034_val_acc_0.979.h5'
+#MODEL_FILE_NAME ='character_resnet50_20230120-031916_model_epoch_44_val_acc_0.9754.h5'
+#WEIGHT_FILE_NAME = 'character_resnet50_20230119-234527_weights_epoch_034_val_acc_0.979.h5'
+MODEL_FILE_NAME ='character_efficientnetb4_20250105-231421_finetune-model_124_node_2048_epoch_22_val_acc_0.9819.h5'
+WEIGHT_FILE_NAME = 'character_efficientnetb4_20250105-175409_finetune_124_node_2048_weights_epoch_012_val_acc_0.9824.h5'
 #----------------------------
 
 

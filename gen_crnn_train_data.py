@@ -18,6 +18,7 @@ CRNN_FOLDER = 'C://SPB_Data//CRNN-Keras//DB'  #복사할 폴더의 디렉토리 
 OBJTYPES = ['ch','reg']
 INPUT_FOLDDERS = ['ch_images','hr_images','vr_images','or_images']
 OUTPUT_FOLDERS = ['char_train', 'reg_train','reg_train','reg_train']
+DIV_COUNT = 20 #5%단위로 경과 표시
 #------------------------------
 ROOT_DIR = os.path.dirname(__file__)
 
@@ -34,7 +35,15 @@ for index, input_folder in enumerate(INPUT_FOLDDERS) :
                 if any(fn.endswith(ext) for ext in image_ext)]
     total_images_files = len(image_list)
     print('{} 폴더에서 {}폴더로 총 {}개 파일을 복사합니다.'.format(input_folder,OUTPUT_FOLDERS[index],total_images_files))
+    
+    count = 0
+    proccnt = 0
+    mod = int(total_images_files / DIV_COUNT)  # 기본 5%마다 표시
     for image_filename in image_list :
+        count += 1
+        if count % mod == 0 :
+            proccnt += 1
+            print('processing : {}%'.format(proccnt*100/DIV_COUNT))
         src =  os.path.join(src_dir,image_filename)
         dst  = os.path.join(dst_dir,image_filename)
         copyfile(src, dst)
